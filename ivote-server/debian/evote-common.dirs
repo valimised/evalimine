@@ -1,0 +1,8 @@
+etc/evote
+etc/default
+usr/bin
+usr/lib/python2.7/dist-packages
+usr/share/lintian/overrides
+usr/share/doc/evote-common
+usr/share/evote
+var/evote

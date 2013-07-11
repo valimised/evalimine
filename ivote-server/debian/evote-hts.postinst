@@ -1,0 +1,61 @@
+#!/bin/sh
+
+set -e
+
+NAME=evote-hts
+USER=hts
+TYPE_DIR=/var/evote/registry/common/hts
+
+if [ "$1" = configure ] ; then
+
+	test -d $TYPE_DIR || mkdir --parents $TYPE_DIR
+
+	a2enmod rewrite
+	a2enmod unique_id
+	ln -sf /etc/evote/hts-apache.conf /etc/apache2/sites-available/hts-apache
+	a2ensite hts-apache
+	a2dissite default || true
+	invoke-rc.d apache2 restart
+	
+	LOGROTATE="/etc/logrotate.d/apache2"
+	if [ -e $LOGROTATE ] ; then
+		TMP=`tempfile`
+		chmod --reference=$LOGROTATE $TMP
+		sed -e 's/create 640/create 664/' $LOGROTATE > $TMP
+		mv $TMP $LOGROTATE
+	fi
+
+	chgrp www-data /var/log/apache2
+	chmod g+rxs /var/log/apache2
+	set +e
+	chown www-data /var/log/apache2/*log
+	chgrp www-data /var/log/apache2/*log
+	set -e
+fi
+
+case "$1" in
+	configure|abort-upgrade|abort-remove|abort-deconfigure)
+		dpkg --listfiles $NAME | grep '\.py$' | \
+			xargs -n 1 /usr/bin/python2.7 -c 'import py_compile,sys;py_compile.compile(sys.argv[1])'
+		dpkg --listfiles $NAME | grep '\.py$' | \
+			xargs -n 1 /usr/bin/python2.7 -O -c 'import py_compile,sys;py_compile.compile(sys.argv[1])'
+	;;
+esac
+
+# set max votes per voter
+EVREG_CONFIG_MAX_VOTES_PER_VOTER=/var/evote/registry/common/max_votes_per_voter
+if [ ! -f ${EVREG_CONFIG_MAX_VOTES_PER_VOTER} ]; then
+	echo -n "integer:500" > $EVREG_CONFIG_MAX_VOTES_PER_VOTER
+	chmod g+w $EVREG_CONFIG_MAX_VOTES_PER_VOTER
+fi
+
+# create user
+GID=`grep ^www-data: /etc/group | cut -d: -f 3`
+getent passwd $USER >/dev/null 2>&1 ||
+                adduser --quiet --system --home /tmp \
+			--gid $GID \
+			--shell /usr/share/evote/evote_ui $USER 
+adduser --quiet $USER cdrom
+
+#DEBHELPER#
+

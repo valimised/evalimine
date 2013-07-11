@@ -1,0 +1,4 @@
+evote-hlr: binary-without-manpage
+evote-hlr: script-with-language-extension
+evote-hlr: possibly-insecure-handling-of-tmp-files-in-maintainer-script
+evote-hlr: dir-or-file-in-tmp var/tmp/evote/

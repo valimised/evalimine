@@ -1,0 +1,216 @@
+#!/usr/bin/make -f
+# -*- makefile -*-
+
+# This has to be exported to make some magic below work.
+export DH_OPTIONS=
+
+HTS_DIR=debian/evote-hts
+HES_DIR=debian/evote-hes
+HLR_DIR=debian/evote-hlr
+COMMON_DIR=debian/evote-common
+PREPARE_DIR=debian/evote-prepare
+
+ETC_DIR=etc/evote
+BIN_DIR=usr/bin
+LIB_DIR=usr/lib
+SHARE_DIR=usr/share/evote
+WWW_DIR=var/www/evote
+PACKAGE_DIR=usr/lib/python2.7/dist-packages
+
+ETC_SSL_DIR=$(ETC_DIR)/ssl
+
+ifeq (,$(findstring nostrip,$(DEB_BUILD_OPTIONS)))
+	INSTALL_PROGRAM += -s
+endif
+
+configure: configure-stamp
+configure-stamp:
+	dh_testdir
+	# Add here commands to configure the package.
+
+	touch configure-stamp
+
+
+#Architecture
+build: build-arch build-indep
+
+build-arch: build-arch-stamp
+build-arch-stamp: configure-stamp
+	$(MAKE) deb
+	touch build-arch-stamp
+
+build-indep: build-indep-stamp
+build-indep-stamp: configure-stamp
+
+	# Add here commands to compile the indep part of the package.
+	#$(MAKE) doc
+	touch build-indep-stamp
+
+clean:
+	dh_testdir
+	dh_testroot
+	rm -f build-arch-stamp build-indep-stamp configure-stamp
+
+	# Add here commands to clean up after the build process.
+	$(MAKE) distclean
+
+	dh_clean
+
+# arhitektuurist sõltumatu pakendamine
+install: install-indep install-arch
+install-indep:
+	dh_testdir
+	dh_testroot
+	dh_prep -i
+	dh_installdirs -i
+
+	# evote-hts
+	install -m 644 debian/evote-hts.lintian $(HTS_DIR)/usr/share/lintian/overrides/evote-hts
+	install -m 644 debian/copyright $(HTS_DIR)/usr/share/doc/evote-hts/copyright
+
+	install -m 644 common/revocationlists.py $(HTS_DIR)/$(PACKAGE_DIR)
+	install -m 755 hts/htsalldisp.py $(HTS_DIR)/$(PACKAGE_DIR)
+	install -m 755 hts/htsall.py $(HTS_DIR)/$(PACKAGE_DIR)
+	install -m 755 hts/htsbase.py $(HTS_DIR)/$(PACKAGE_DIR)
+	install -m 755 hts/htscommon.py $(HTS_DIR)/$(PACKAGE_DIR)
+	install -m 755 hts/htsdisp.py $(HTS_DIR)/$(PACKAGE_DIR)
+	install -m 755 hts/hts.py $(HTS_DIR)/$(PACKAGE_DIR)
+	install -m 755 hts/htsrevoke.py $(HTS_DIR)/$(PACKAGE_DIR)
+	install -m 755 hts/htsstatus.py $(HTS_DIR)/$(PACKAGE_DIR)
+
+	install -m 755 hts/ocsp_checker.py $(HTS_DIR)/$(SHARE_DIR)
+	install -m 755 hts/purge_otps.py $(HTS_DIR)/$(SHARE_DIR)
+	install -m 755 cgi/hts-cgi.py $(HTS_DIR)/$(SHARE_DIR)/hts.cgi
+	install -m 755 cgi/hts-verify-vote-cgi.py $(HTS_DIR)/$(SHARE_DIR)/hts-verify-vote.cgi
+	install -m 644 cgi/hts-apache.conf $(HTS_DIR)/$(ETC_DIR)
+
+	install -m 755 common/apply_changes.py $(HTS_DIR)/$(BIN_DIR)
+	install -m 755 common/hts_state.py $(HTS_DIR)/$(BIN_DIR)
+	install -m 755 common/show_voters_files_history.py $(HTS_DIR)/$(BIN_DIR)
+
+	# evote-hes
+	mkdir $(HES_DIR)/$(WWW_DIR)/data
+
+	install -m 644 debian/evote-hes.lintian $(HES_DIR)/usr/share/lintian/overrides/evote-hes
+	install -m 644 debian/copyright $(HES_DIR)/usr/share/doc/evote-hes/copyright
+
+	install -m 644 hes/hes.py $(HES_DIR)/$(PACKAGE_DIR)
+	install -m 644 hes/birthday.py $(HES_DIR)/$(PACKAGE_DIR)
+	install -m 644 hes/hesdisp.py $(HES_DIR)/$(PACKAGE_DIR)
+	install -m 644 hes/middisp.py $(HES_DIR)/$(PACKAGE_DIR)
+	install -m 644 hes/DigiDocService_client.py $(HES_DIR)/$(PACKAGE_DIR)
+	install -m 644 hes/DigiDocService_types.py $(HES_DIR)/$(PACKAGE_DIR)
+	install -m 644 hes/vote_analyzer.py $(HES_DIR)/$(PACKAGE_DIR)
+
+	install -m 755 cgi/hes-cgi.py $(HES_DIR)/$(WWW_DIR)/hes.cgi
+	install -m 755 cgi/mobid-cgi.py $(HES_DIR)/$(WWW_DIR)/mobid.cgi
+	install -m 755 cgi/hes-verify-vote-cgi.py $(HES_DIR)/$(WWW_DIR)/hes-verify-vote.cgi
+
+	install -m 644 cgi/hes-apache.conf $(HES_DIR)/$(ETC_DIR)
+
+	install -m 755 common/apply_changes.py $(HES_DIR)/$(BIN_DIR)
+	install -m 755 common/config_hth.py $(HES_DIR)/$(BIN_DIR)
+	install -m 755 common/check_consistency.py $(HES_DIR)/$(BIN_DIR)
+	install -m 755 common/replace_candidates.py $(HES_DIR)/$(BIN_DIR)
+	install -m 755 common/show_voters_files_history.py $(HES_DIR)/$(BIN_DIR)
+
+	# prepare
+	install -m 755 common/check_inputlists.py $(PREPARE_DIR)/$(BIN_DIR)
+	install -m 644 common/evcommon.py $(PREPARE_DIR)/$(PACKAGE_DIR)
+	install -m 644 common/formatutil.py $(PREPARE_DIR)/$(PACKAGE_DIR)
+	install -m 644 common/inputlists.py $(PREPARE_DIR)/$(PACKAGE_DIR)
+	install -m 644 common/ticker.py $(PREPARE_DIR)/$(PACKAGE_DIR)
+
+	dh_install -i
+
+# arhitektuurispetsiifiline pakendamine
+install-arch:
+	dh_testdir
+	dh_testroot
+	dh_prep -s
+	dh_installdirs -s
+
+	# evote-common
+
+	install -m 644 debian/evote-common.lintian $(COMMON_DIR)/usr/share/lintian/overrides/evote-common
+	install -m 644 debian/copyright $(COMMON_DIR)/usr/share/doc/evote-common/copyright
+
+	install -m 644 debian/default $(COMMON_DIR)/etc/default/evote
+	install -m 644 common/election.py $(COMMON_DIR)/$(PACKAGE_DIR)
+	install -m 644 common/evcommon.py $(COMMON_DIR)/$(PACKAGE_DIR)
+	install -m 644 common/evlog.py $(COMMON_DIR)/$(PACKAGE_DIR)
+	install -m 644 common/evmessage.py $(COMMON_DIR)/$(PACKAGE_DIR)
+	install -m 644 common/evreg.py $(COMMON_DIR)/$(PACKAGE_DIR)
+	install -m 644 common/evstrings.py $(COMMON_DIR)/$(PACKAGE_DIR)
+	install -m 644 common/exception_msg.py $(COMMON_DIR)/$(PACKAGE_DIR)
+	install -m 644 common/formatutil.py $(COMMON_DIR)/$(PACKAGE_DIR)
+	install -m 644 common/inputlists.py $(COMMON_DIR)/$(PACKAGE_DIR)
+	install -m 644 common/ksum.py $(COMMON_DIR)/$(PACKAGE_DIR)
+	install -m 644 common/protocol.py $(COMMON_DIR)/$(PACKAGE_DIR)
+	install -m 644 common/question.py $(COMMON_DIR)/$(PACKAGE_DIR)
+	install -m 755 common/regrights.py $(COMMON_DIR)/$(PACKAGE_DIR)
+	install -m 644 common/sessionid.py $(COMMON_DIR)/$(PACKAGE_DIR)
+	install -m 644 common/singleton.py $(COMMON_DIR)/$(PACKAGE_DIR)
+	install -m 644 common/ticker.py $(COMMON_DIR)/$(PACKAGE_DIR)
+
+	install -m 644 pybdoc/python/bdocpython.py $(COMMON_DIR)/$(PACKAGE_DIR)
+	chrpath -d pybdoc/python/.libs/_bdocpython.so
+	install -m 644 pybdoc/python/.libs/_bdocpython.so $(COMMON_DIR)/$(PACKAGE_DIR)
+	install -m 644 pybdoc/python/bdocpythonutils.py $(COMMON_DIR)/$(PACKAGE_DIR)
+	install -m 644 pybdoc/src/.libs/libbdoc.so.0 $(COMMON_DIR)/$(LIB_DIR)
+
+	install -m 755 common/config_common.py $(COMMON_DIR)/$(BIN_DIR)
+	install -m 755 common/init_conf.py $(COMMON_DIR)/$(BIN_DIR)
+	install -m 755 common/config_bdoc.py $(COMMON_DIR)/$(BIN_DIR)
+
+	install -m 755 evui/evote_ui.sh $(COMMON_DIR)/$(SHARE_DIR)/evote_ui
+	install -m 644 evui/burner.py $(COMMON_DIR)/$(PACKAGE_DIR)
+	install -m 644 evui/evui.py $(COMMON_DIR)/$(SHARE_DIR)
+	install -m 644 evui/uiutil.py $(COMMON_DIR)/$(PACKAGE_DIR)
+	install -m 644 evui/serviceutil.py $(COMMON_DIR)/$(PACKAGE_DIR)
+	install -m 644 evui/evfiles.py $(COMMON_DIR)/$(PACKAGE_DIR)
+
+	echo "dvd -fstype=iso9660,ro,sync,nodev,nosuid :/dev/dvd" > $(COMMON_DIR)/etc/auto.evote
+
+	# evote-hlr
+	install -m 644 debian/evote-hlr.lintian $(HLR_DIR)/usr/share/lintian/overrides/evote-hlr
+	install -m 644 debian/copyright $(HLR_DIR)/usr/share/doc/evote-hlr/copyright
+
+	install -m 755 common/replace_candidates.py $(HLR_DIR)/$(BIN_DIR)
+	install -m 755 hlr/threaded_decrypt $(HLR_DIR)/$(BIN_DIR)
+	install -m 755 hlr/hlr.py $(HLR_DIR)/$(SHARE_DIR)
+	install -m 755 common/config_hsm.py $(HLR_DIR)/$(BIN_DIR)
+	install -m 755 common/config_hlr_input.py $(HLR_DIR)/$(BIN_DIR)
+
+	dh_install -s
+# Must not depend on anything. This is to be called by
+# binary-arch/binary-indep
+# in another 'make' thread.
+binary-common:
+	dh_testdir
+	dh_testroot
+#	dh_installdocs
+	dh_installexamples
+	dh_installman
+	dh_installcron
+	dh_installchangelogs
+	dh_link
+	dh_strip
+	dh_compress
+	dh_fixperms
+	dh_makeshlibs
+	dh_installdeb
+	dh_shlibdeps
+	dh_gencontrol
+	dh_md5sums
+	dh_builddeb
+# Build architecture independant packages using the common target.
+binary-indep: build-indep install-indep
+	$(MAKE) -f debian/rules DH_OPTIONS=-i binary-common
+
+# Build architecture dependant packages using the common target.
+binary-arch: build-arch install-arch
+	$(MAKE) -f debian/rules DH_OPTIONS=-a binary-common
+
+binary: binary-arch binary-indep
+.PHONY: build clean binary-indep binary-arch binary install install-indep install-arch configure

@@ -1,0 +1,35 @@
+# /etc/default/evote
+
+EVREG_CONFIG=/var/evote/registry
+EVREG_BIN=/usr/lib/python2.7/dist-packages
+LANG=et_EE
+
+export EVREG_CONFIG EVREG_BIN LANG
+
+export PATH=$PATH:/usr/share/evote:$EVREG_BIN
+
+# less
+
+LESSSECURE=1
+LESSCHARSET=utf-8
+
+export LESSSECURE LESSCHARSET
+
+# ajutiste failide asukoht
+
+TMPFS=/var/tmp/evote
+
+if [ -d $TMPFS ]
+then
+	TMPDIR=$TMPFS
+	EVOTE_TMPDIR=$TMPFS
+	export TMPDIR EVOTE_TMPDIR
+fi
+
+# terminali käitumine
+/bin/stty susp ^@
+
+# umask
+umask 007
+
+unicode_start

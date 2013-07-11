@@ -1,0 +1,5 @@
+evote-common: binary-without-manpage
+evote-common: script-with-language-extension
+evote-common: non-standard-dir-in-var var/evote/
+evote-common: package-name-doesnt-match-sonames libbdoc0
+

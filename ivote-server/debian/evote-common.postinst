@@ -1,0 +1,57 @@
+#!/bin/sh
+
+set -e
+
+NAME=evote-common
+EVREG_CONFIG=/var/evote/registry
+EVREG_CONFIG_STATE=$EVREG_CONFIG/common/state
+
+case "$1" in
+	configure|abort-upgrade|abort-remove|abort-deconfigure)
+		dpkg --listfiles $NAME | grep '\.py$' | \
+			xargs -n 1 /usr/bin/python2.7 -c 'import py_compile,sys;py_compile.compile(sys.argv[1])'
+		dpkg --listfiles $NAME | grep '\.py$' | \
+			xargs -n 1 /usr/bin/python2.7 -O -c 'import py_compile,sys;py_compile.compile(sys.argv[1])'
+	;;
+esac
+
+# create registry directory
+test -d $EVREG_CONFIG/common || mkdir --parents $EVREG_CONFIG/common
+chgrp www-data $EVREG_CONFIG $EVREG_CONFIG/common
+chmod 2770 $EVREG_CONFIG $EVREG_CONFIG/common
+
+# set registry to setup state
+if [ ! -f ${EVREG_CONFIG_STATE} ]; then
+	echo -n "integer:1" > $EVREG_CONFIG_STATE
+	chmod g+w $EVREG_CONFIG_STATE
+fi
+
+# to enable restore registry
+chgrp -R www-data /var/evote
+chmod -R g+w /var/evote
+
+# reconfigure autofs
+AUTODIR="/var/autofs/misc"
+AUTODVD="${AUTODIR}/dvd"
+echo "# auto.master for evote" > /etc/auto.master
+echo "# see autofs(5)" >> /etc/auto.master
+echo "${AUTODIR} /etc/auto.evote --timeout=5" >> /etc/auto.master
+invoke-rc.d autofs reload
+
+# link /dvd to automounter
+DVDROM=/dvd
+if [ ! -L ${DVDROM} ]; then
+	if [ -d ${DVDROM} ]; then
+		rmdir /dvd
+	fi
+	ln -s ${AUTODVD} /dvd
+fi
+
+# allow users to umount dvd
+if ! egrep --quiet ${AUTODVD} /etc/fstab; then
+	echo >> /etc/fstab
+	echo "/dev/dvd	${AUTODVD}	iso9660	ro,users,noauto	0	0" >> /etc/fstab
+fi
+
+#DEBHELPER#
+

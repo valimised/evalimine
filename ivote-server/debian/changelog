@@ -1,0 +1,18 @@
+evote (1.1.1) stable; urgency=low
+
+  * python2.7
+  * wheezy
+  * kontrollitavus
+
+ -- Sven Heiberg <sven@cyber.ee>  Wed, 10 Jul 2013 17:34:42 +0300
+
+evote (1.0.1) stable; urgency=low
+
+  * Mobiil-ID
+  * BDOC
+  * Python 2.5
+  * Lenny
+  * pylint
+  * Uus HSM
+
+ -- Sven Heiberg <sven@cyber.ee>  Thu, 18 Nov 2010 16:41:08 +0300

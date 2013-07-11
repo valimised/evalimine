@@ -1,0 +1,15 @@
+#!/bin/sh
+
+set -e
+
+NAME=evote-hes
+
+#rm -f /var/www/evote/favicon.ico
+#rm -f /var/www/evote/safari
+
+dpkg --listfiles $NAME |
+	awk '$0~/\.py$/ {print $0"c\n" $0"o"}' |
+	xargs rm -f >&2
+
+#DEBHELPER#
+

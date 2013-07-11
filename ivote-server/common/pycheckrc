@@ -1,0 +1,3 @@
+
+# list of strings: ignore warnings generated from these modules
+blacklist = [ 'ZSI', 'Tkinter', 'wxPython', 'gtk', 'GTK', 'GDK', ]

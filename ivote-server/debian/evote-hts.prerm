@@ -1,0 +1,12 @@
+#!/bin/sh
+
+set -e
+
+NAME=evote-hts
+
+dpkg --listfiles $NAME |
+	awk '$0~/\.py$/ {print $0"c\n" $0"o"}' |
+	xargs rm -f >&2
+
+#DEBHELPER#
+

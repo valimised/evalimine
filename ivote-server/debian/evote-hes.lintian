@@ -1,0 +1,4 @@
+evote-hes: dir-or-file-in-var-www
+evote-hes: binary-without-manpage
+evote-hes: script-with-language-extension
+evote-hes: possibly-insecure-handling-of-tmp-files-in-maintainer-script

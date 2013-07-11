@@ -1,0 +1,5 @@
+usr/bin
+usr/share/evote
+var/tmp/evote
+usr/share/lintian/overrides
+usr/share/doc/evote-hlr

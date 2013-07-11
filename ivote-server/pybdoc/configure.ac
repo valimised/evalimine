@@ -1,0 +1,30 @@
+AC_PREREQ([2.69])
+AC_INIT([bdoclib], [1.0], [sven@cyber.ee])
+AM_INIT_AUTOMAKE([-Wall -Werror foreign])
+LT_INIT
+AC_CONFIG_MACRO_DIR([m4])
+AC_DISABLE_STATIC
+
+AC_PROG_CXX
+AC_PROG_CC
+AM_PATH_PYTHON(2.7)
+AC_PROG_SWIG(2.0)
+SWIG_ENABLE_CXX
+SWIG_PYTHON
+
+AC_CHECK_HEADER_STDBOOL
+AC_TYPE_SIZE_T
+AC_FUNC_ERROR_AT_LINE
+AC_FUNC_MALLOC
+AC_CHECK_FUNCS([memset])
+
+AC_CONFIG_HEADERS(config.h)
+AC_CONFIG_FILES([
+	Makefile
+	src/Makefile
+	src/crypto/Makefile
+	src/xml/Makefile
+	python/Makefile
+])
+AC_OUTPUT
+

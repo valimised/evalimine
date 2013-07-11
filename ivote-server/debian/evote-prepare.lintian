@@ -1,0 +1,2 @@
+evote-prepare: binary-without-manpage
+evote-prepare: script-with-language-extension

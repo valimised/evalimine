@@ -1,0 +1,4 @@
+evote-hts: binary-without-manpage
+evote-hts: script-with-language-extension
+evote-hts: dir-or-file-in-var-www var/www/evote/
+evote-hts: possibly-insecure-handling-of-tmp-files-in-maintainer-script
