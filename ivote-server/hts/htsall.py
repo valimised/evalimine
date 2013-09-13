@@ -374,9 +374,6 @@ class HTSVerify:
             ret += elid + "\t" + binascii.b2a_hex(bdoc.documents[votefile]) + "\n"
         ret += "\n"
 
-        # append voter
-        ret += self._voter["nimi"] + "\t" + self._voter_code + "\n"
-
         # append choices list
         for quest in questions:
             ret += quest.choices_to_voter(self._voter)
