@@ -1,5 +1,7 @@
 #!/bin/sh
 
+. /usr/share/debconf/confmodule
+
 set -e
 
 NAME=evote-hts
@@ -10,27 +12,59 @@ if [ "$1" = configure ] ; then
 
 	test -d $TYPE_DIR || mkdir --parents $TYPE_DIR
 
-	a2enmod rewrite
+	a2enmod cgi
 	a2enmod unique_id
+	a2enmod log_forensic
 	ln -sf /etc/evote/hts-apache.conf /etc/apache2/sites-available/hts-apache
 	a2ensite hts-apache
 	a2dissite default || true
-	invoke-rc.d apache2 restart
-	
+
 	LOGROTATE="/etc/logrotate.d/apache2"
 	if [ -e $LOGROTATE ] ; then
 		TMP=`tempfile`
 		chmod --reference=$LOGROTATE $TMP
-		sed -e 's/create 640/create 664/' $LOGROTATE > $TMP
+		cat << EOF > $TMP
+/var/log/apache2/*.log {
+	weekly
+	missingok
+	rotate 52
+	nocompress
+	create 640 root www-data
+	sharedscripts
+	postrotate
+		/etc/init.d/apache2 reload > /dev/null
+	endscript
+	prerotate
+		if [ -d /etc/logrotate.d/httpd-prerotate ]; then \\
+			run-parts /etc/logrotate.d/httpd-prerotate; \\
+		fi; \\
+	endscript
+}
+EOF
 		mv $TMP $LOGROTATE
 	fi
 
 	chgrp www-data /var/log/apache2
 	chmod g+rxs /var/log/apache2
+	touch /var/log/apache2/forensic.log
 	set +e
-	chown www-data /var/log/apache2/*log
-	chgrp www-data /var/log/apache2/*log
+	chown root /var/log/apache2/*log*
+	chgrp www-data /var/log/apache2/*log*
+	chmod 640 /var/log/apache2/*log*
 	set -e
+
+	invoke-rc.d apache2 restart
+
+	db_get evote-hts/log_server_ip
+	LOGIP="$RET"
+	db_stop
+	SYSLOGCONF="/etc/evote/hts-syslog.conf"
+	TMP=`tempfile`
+	chmod --reference=$SYSLOGCONF $TMP
+	sed -e "s/TOBEREPLACED/$LOGIP/" $SYSLOGCONF > $TMP
+	mv $TMP $SYSLOGCONF
+	ln -sf $SYSLOGCONF /etc/rsyslog.d/hts-syslog.conf
+	invoke-rc.d rsyslog restart
 fi
 
 case "$1" in
@@ -45,17 +79,18 @@ esac
 # set max votes per voter
 EVREG_CONFIG_MAX_VOTES_PER_VOTER=/var/evote/registry/common/max_votes_per_voter
 if [ ! -f ${EVREG_CONFIG_MAX_VOTES_PER_VOTER} ]; then
-	echo -n "integer:500" > $EVREG_CONFIG_MAX_VOTES_PER_VOTER
+	echo -n "integer:1000" > $EVREG_CONFIG_MAX_VOTES_PER_VOTER
 	chmod g+w $EVREG_CONFIG_MAX_VOTES_PER_VOTER
 fi
 
 # create user
 GID=`grep ^www-data: /etc/group | cut -d: -f 3`
 getent passwd $USER >/dev/null 2>&1 ||
-                adduser --quiet --system --home /tmp \
+				adduser --quiet --system --home /tmp \
 			--gid $GID \
 			--shell /usr/share/evote/evote_ui $USER 
 adduser --quiet $USER cdrom
+invoke-rc.d cron restart || true
 
 #DEBHELPER#
 

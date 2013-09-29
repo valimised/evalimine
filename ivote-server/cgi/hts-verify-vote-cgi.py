@@ -20,6 +20,7 @@ import evmessage
 import evstrings
 import htsalldisp
 import protocol
+import sessionid
 from evlog import AppLog
 
 def bad_parameters():
@@ -39,6 +40,10 @@ if not evcommon.testrun():
     form = cgi.FieldStorage()
 
     vote = None
+
+    if form.has_key(evcommon.POST_SESS_ID):
+        sessionid.setsid(form.getvalue(evcommon.POST_SESS_ID))
+
     if form.has_key(evcommon.POST_VERIFY_VOTE):
         values = form.getlist(evcommon.POST_VERIFY_VOTE)
         if len(values) == 1:

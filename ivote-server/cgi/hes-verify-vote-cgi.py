@@ -22,7 +22,9 @@ import evstrings
 import election
 import formatutil
 import protocol
-from evlog import AppLog
+import evlog
+import evlogdata
+import sessionid
 
 os.umask(007)
 
@@ -38,7 +40,7 @@ def bad_parameters():
 
 if not evcommon.testrun():
     elec = election.Election()
-    AppLog().set_app(APP)
+    evlog.AppLog().set_app(APP)
 
     # Create a list of pairs from the form parameters. Don't use a dictionary
     # because that will overwrite recurring keys.
@@ -54,19 +56,24 @@ if not evcommon.testrun():
             """Return a comma-separated list of the keys."""
             return ", ".join([pair[0] for pair in pairs])
 
-        AppLog().log_error("Too many query parameters: " + keys(params))
+        evlog.log_error("Too many query parameters: " + keys(params))
         bad_parameters()
 
     # Only accept the POST_VERIFY_VOTE parameter.
     if len(params) and params[0][0] != evcommon.POST_VERIFY_VOTE:
-        AppLog().log_error("Unknown query parameter \"%s\"" % params[0][0])
+        evlog.log_error("Unknown query parameter \"%s\"" % params[0][0])
         bad_parameters()
 
     # Make sure the parameter is correctly formatted.
     if not formatutil.is_vote_verification_id(params[0][1]):
         # Don't write to disk; we don't know how large the value is
-        AppLog().log_error("Malformed vote ID")
+        evlog.log_error("Malformed vote ID")
         bad_parameters()
+
+    evlog.log("verif/auth REMOTE_ADDR: " + evlogdata.get_remote_ip())
+    evlog.log("verif/auth VOTE-ID: " + params[0][1])
+
+    params.append((evcommon.POST_SESS_ID, sessionid.voting()))
 
     url = "http://" + elec.get_hts_ip() + "/" + elec.get_hts_verify_path()
     conn = urllib.urlopen(url, urllib.urlencode(params))

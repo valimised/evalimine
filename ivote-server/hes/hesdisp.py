@@ -48,6 +48,7 @@ TASK_VOTE = 'vote'
 STR_CAND = 'Kandidaatide nimekiri'
 STR_VOTE = 'Hääle edastamine talletamiseks'
 
+LOGSIG = {TASK_CAND : STR_CAND, TASK_VOTE : STR_VOTE}
 
 def is_valid_id_cert():
     """Verifitseerib hääletaja sertifkaadi vastavust (ahelat) süsteemi
@@ -172,6 +173,7 @@ class HESVoterDispatcher:
 
     def __init__(self):
         self.__hes = hes.HES()
+        self.__task = TASK_CAND
 
     def __return_exception(self):
         evlog.log_exception()
@@ -179,7 +181,8 @@ class HESVoterDispatcher:
         return self.__return_error(r1, r2)
 
     def __return_error(self, errcode, msg):
-        evlog.log_error('Teade Valija rakendusele: "%s"' % msg)
+        evlog.log_error('Viga operatsioonil "%s", teade "%s"' %\
+                (self.__task, msg))
         return protocol.msg_error(errcode, msg)
 
     def __get_candidate_list(self, valid_person):
@@ -191,8 +194,10 @@ class HESVoterDispatcher:
         korduv_ret, korduv_msg = self.__hes.hts_repeat_check(valid_person)
 
         if korduv_ret == evcommon.EVOTE_REPEAT_NO:
+            evlog.log('Kandidaatide nimekiri väljastati A')
             return protocol.msg_ok(cand_msg)
         elif korduv_ret == evcommon.EVOTE_REPEAT_YES:
+            evlog.log('Kandidaatide nimekiri väljastati B')
             return protocol.msg_repeat(cand_msg, korduv_msg)
         elif korduv_ret == evcommon.EVOTE_REPEAT_NOT_CONSISTENT:
             r1, r2 = protocol.plain_error_maintainance()
@@ -210,16 +215,16 @@ class HESVoterDispatcher:
         else:
             return self.__return_error(res_ok, res)
 
-    def __proxy(self, logsig, task, vote = None, votebox = None):
+    def __proxy(self, vote = None, votebox = None):
         try:
-            evlog.log(logsig + ': ALGUS')
+            evlog.log(LOGSIG[self.__task] + ': ALGUS')
             if ElectionState().election_on():
                 security = CertAnalyzer()
                 if security.work():
-                    if task == TASK_CAND:
+                    if self.__task == TASK_CAND:
                         return \
                             self.__get_candidate_list(security.valid_person())
-                    elif task == TASK_VOTE:
+                    elif self.__task == TASK_VOTE:
                         return self.__hts_vote(\
                                     security.valid_person(), vote, votebox)
                     else:
@@ -235,13 +240,15 @@ class HESVoterDispatcher:
         except:
             return self.__return_exception()
         finally:
-            evlog.log(logsig + ': LõPP')
+            evlog.log(LOGSIG[self.__task] + ': LõPP')
 
     def get_candidate_list(self):
-        return self.__proxy(STR_CAND, TASK_CAND)
+        self.__task = TASK_CAND
+        return self.__proxy()
 
     def hts_vote(self, vote, votebox = None):
-        return self.__proxy(STR_VOTE, TASK_VOTE, vote, votebox)
+        self.__task = TASK_VOTE
+        return self.__proxy(vote, votebox)
 
 
 class HESDispatcher:

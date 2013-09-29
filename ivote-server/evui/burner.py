@@ -208,6 +208,7 @@ class FileListBurner(DiskBurner):
         DiskBurner.__init__(self, work_dir)
         self.application_log_exists = False
         self.error_log_exists = False
+        self.debug_log_exists = False
         self.current_disk = None
         self.current_disk_name = ''
         self.session_dir_name = ''
@@ -266,6 +267,10 @@ class FileListBurner(DiskBurner):
                 if not self.error_log_exists:
                     shutil.copy(i, self.session_dir_name)
                     self.error_log_exists = True
+            elif tail == evcommon.DEBUG_LOG_FILE:
+                if not self.debug_log_exists:
+                    shutil.copy(i, self.session_dir_name)
+                    self.debug_log_exists = True
             else:
                 shutil.copy(i, dir_name)
 

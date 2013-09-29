@@ -62,6 +62,7 @@ CHOICE_HLR_CONF = "Lae HLRi valimiste failid"
 CHOICE_HTS_CONF = "Lae HTSi valimiste failid"
 CHOICE_HTS_REVOKE = "Rakenda tühistus-/ennistusnimekirja"
 CHOICE_IMPORT_VOTES = "Impordi hääled lugemiseks"
+CHOICE_INSTALL = "Lae valimiste seaded paigaldusfailist"
 CHOICE_LIST_ALL_RIGHTS = "Vaata kõiki volitusi"
 CHOICE_LIST_USER_RIGHTS = "Vaata isiku volitusi"
 CHOICE_LOAD_ELECTORS = "Lae valijate faili täiendused"
@@ -89,6 +90,7 @@ CHOICE_VIEW_ELECTION_DESCRIPTION = "Vaata valimiste kirjeldust"
 CHOICE_VIEW_STATUS_REPORT = "Vaata vaheauditi aruannet"
 CHOICE_VOTERS_FILE_HISTORY = "Valijanimekirjade uuendamise ajalugu"
 CHOICE_VERIFICATION_CONF = "Seadista kontrollitavus"
+CHOICE_GET_VERIFICATION_CONF = "Vaata kontrollitavuse sätteid"
 
 # Konfi skriptid
 SCRIPT_HTS_STATE = "hts_state.py"
@@ -112,6 +114,7 @@ STR_YES = "yes"
 
 SHA1_KEYS = [ \
     evcommon.ELECTIONRESULT_STR, \
+    evcommon.ELECTIONRESULT_STAT_STR, \
     evcommon.ELECTIONS_RESULT_STR, \
     evcommon.REVREPORT_STR, \
     evcommon.ELECTORSLIST_STR]
@@ -243,7 +246,8 @@ class EvUI:
 
         def create_sub1_hes(sub):
             sub.create(CHOICE_CONFIGURE_COMMON)
-            sub.add_item(CHOICE_BDOC_CONF, serviceutil.do_bdoc_conf)
+            sub.add_item(CHOICE_BDOC_CONF, serviceutil.do_bdoc_conf_hes)
+            sub.add_item(CHOICE_INSTALL, serviceutil.do_install)
             sub.add_item(CHOICE_SET_MID_CONF, serviceutil.do_set_mid_conf)
             sub.add_item(CHOICE_GET_MID_CONF, serviceutil.do_get_mid_conf)
             sub.add_item(CHOICE_SET_HES_HTS_CONF, serviceutil.do_set_hts_conf)
@@ -275,12 +279,14 @@ class EvUI:
         def create_sub1_hts(sub):
             sub.create(CHOICE_CONFIGURE_COMMON)
             sub.add_item(CHOICE_BDOC_CONF, serviceutil.do_bdoc_conf)
+            sub.add_item(CHOICE_INSTALL, serviceutil.do_install)
             sub.add_item(CHOICE_VOTERS_FILE_HISTORY, \
                                             serviceutil.do_voters_file_history)
 
-            if self.state == election.ETAPP_ENNE_HAALETUST:
-                sub.add_item(CHOICE_VERIFICATION_CONF, \
-                                            serviceutil.do_verification_conf)
+            sub.add_item(CHOICE_VERIFICATION_CONF, \
+                    serviceutil.do_verification_conf)
+            sub.add_item(CHOICE_GET_VERIFICATION_CONF, \
+                    serviceutil.do_get_verification_conf)
 
             if self.state == election.ETAPP_ENNE_HAALETUST:
                 if Election().is_voters_list_disabled():
@@ -303,6 +309,7 @@ class EvUI:
         def create_sub1_hlr(sub):
             sub.create(CHOICE_CONFIGURE_COMMON)
             sub.add_item(CHOICE_BDOC_CONF, serviceutil.do_bdoc_conf)
+            sub.add_item(CHOICE_INSTALL, serviceutil.do_install)
             sub.add_item(CHOICE_SET_HSM_CONF, serviceutil.do_set_hsm_conf)
             sub.add_item(CHOICE_GET_HSM_CONF, serviceutil.do_get_hsm_conf)
             if self.state == election.ETAPP_ENNE_HAALETUST and \
@@ -764,6 +771,7 @@ class EvUI:
             files.add_file(evfiles.application_log_file())
             files.add_file(evfiles.error_log_file())
             files.add_file(evfiles.electionresult_file(elid))
+            files.add_file(evfiles.electionresultstat_file(elid))
 
         self.file_table = files.get_existing_files()
 

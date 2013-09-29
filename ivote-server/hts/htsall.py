@@ -376,7 +376,11 @@ class HTSVerify:
 
         # append choices list
         for quest in questions:
-            ret += quest.choices_to_voter(self._voter)
+            tv = quest.get_voter(self._voter_code)
+            if tv:
+                ret += quest.choices_to_voter(tv)
+            else:
+                evlog.log_error("Voter not found")
 
         self.__decrease_count()
         return ret
@@ -463,8 +467,6 @@ class HTSAll:
             store.create_actions()
             store.revoke_vote_id()
             vote_id = store.issue_vote_id()
-            evlog.log("Issued vote ID %s to %s for BDOC %s" % \
-                    (vote_id, store.signercode, ksum.votehash(store.signed_vote)))
             new_otp = True
             store.store_votes()
         except HTSStoreException as e:
@@ -473,6 +475,8 @@ class HTSAll:
                 store.revoke_vote_id()
             return e.ret, store.user_msg
 
+        evlog.log("Issued vote ID %s to %s for BDOC %s" % \
+                (vote_id, store.signercode, ksum.votehash(store.signed_vote)))
         return evcommon.EVOTE_OK, vote_id
 
     def talleta_base64(self, data):

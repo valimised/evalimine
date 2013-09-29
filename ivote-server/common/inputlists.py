@@ -14,7 +14,6 @@ http://creativecommons.org/licenses/by-nc-nd/3.0/.
 import sys
 import os
 import gdbm
-import shutil
 
 import ticker
 import formatutil

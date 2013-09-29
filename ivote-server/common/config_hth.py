@@ -51,7 +51,7 @@ def main_function():
                 hts_path = NOT_DEFINED_STR
 
             try:
-                hts_verify = Election().get_hts_path()
+                hts_verify = Election().get_hts_verify_path()
             except:
                 hts_verify = NOT_DEFINED_STR
 

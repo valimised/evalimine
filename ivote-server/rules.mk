@@ -7,12 +7,12 @@ PYTHONPATH:=$(PYTHONPATH):$(ROOT_DIR)pybdoc/python:$(ROOT_DIR)pybdoc/python/.lib
 PYTHON=python2.7
 PYLINT=pylint -E
 PYLINTRC=$(ROOT_DIR)common/pylintrc
-PYLINT_OPTIONS=--rcfile="$(PYLINTRC)" *.py
+PYLINT_OPTIONS=--rcfile="$(PYLINTRC)"
 RM=rm -f
 
 PYCHECK=pychecker
 PYCHECKRC=$(ROOT_DIR)common/pycheckrc
-PYCHECK_OPTIONS=-F $(PYCHECKRC) -aqI6A --limit=40 --changetypes *.py
+PYCHECK_OPTIONS=-F $(PYCHECKRC) -aqI6A --limit=40 --changetypes
 
 pyclean:
 	$(RM) *.pyc *.pyo
@@ -23,9 +23,18 @@ objclean:
 test:
 	for i in test_*; do env LD_LIBRARY_PATH="$(PYTHONPATH)" PYTHONPATH="$(PYTHONPATH)" ./$$i; done
 
-check:
-	env LD_LIBRARY_PATH="$(PYTHONPATH)" PYTHONPATH="$(PYTHONPATH)" IVOTE_TEST_RUN="1" $(PYLINT) $(PYLINT_OPTIONS)
+intlint:
+	for i in *.py ; \
+	do \
+		echo "Processing $$i.."; \
+		env LD_LIBRARY_PATH="$(PYTHONPATH)" PYTHONPATH="$(PYTHONPATH)" $(PYLINT) $(PYLINT_OPTIONS) $$i; \
+	done
 
-checker:
-	env LD_LIBRARY_PATH="$(PYTHONPATH)" PYTHONPATH="$(PYTHONPATH)" IVOTE_TEST_RUN="1" $(PYCHECK) $(PYCHECK_OPTIONS)
+
+intchecker:
+	for i in *.py ; \
+	do \
+		echo "Processing $$i.."; \
+		env LD_LIBRARY_PATH="$(PYTHONPATH)" PYTHONPATH="$(PYTHONPATH)" IVOTE_TEST_RUN="1" $(PYCHECK) $(PYCHECK_OPTIONS) $$i; \
+	done
 

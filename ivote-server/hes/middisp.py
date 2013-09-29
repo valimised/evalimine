@@ -23,6 +23,7 @@ from DigiDocService_client import *
 from election import Election
 from election import ElectionState
 import evlog
+import evlogdata
 import sessionid
 import evcommon
 import protocol
@@ -94,6 +95,7 @@ def mobid_vote_data(b64vote):
             raise Exception, "BDoc ei sisalda ühtegi andmefaili"
         ret = {}
         for el in bdoc.documents:
+            evlog.log(evlogdata.get_vote(el, bdoc.documents[el]))
             ret[el] = base64.b64encode(bdoc.documents[el])
 
         return ret
@@ -463,7 +465,7 @@ class MIDDispatcher:
 
             if r1:
                 self.ctx().save_post_sign(r2)
-
+                evlog.log('Signeerimispäring (%s)' % r2)
                 return protocol.msg_mobid_sign_init_ok(r3)
 
             return self.__return_mid_error(r2)
@@ -505,9 +507,17 @@ class MIDDispatcher:
             rsp = service.init_auth(self.ctx())
             if rsp._Status == 'OK':
                 self.ctx().save_post_auth(rsp)
+
+                alog, elog = evlogdata.get_cert_data_log(
+                        rsp._CertificateData, 'cand/auth', True)
+
                 evlog.log('Autentimispäring (%s, %s, %s, %s)' % \
                     (rsp._UserIDCode, rsp._UserGivenname, \
                     rsp._UserSurname, rsp._Challenge))
+
+                evlog.log(alog)
+                if elog:
+                    evlog.log_error(elog)
 
                 return protocol.msg_mobid_auth_init_ok(\
                     self.ctx().sessid(), rsp._ChallengeID)
@@ -561,6 +571,7 @@ class MIDDispatcher:
             return protocol.msg_mobid_poll()
 
         if rsp._Status == 'USER_AUTHENTICATED':
+            evlog.log('Received USER_AUTHENTICATED from DDS')
             c1, c2 = self.ctx().verify_challenge(rsp._Signature)
             if not c1:
                 evlog.log_error(c2)
@@ -578,6 +589,7 @@ class MIDDispatcher:
             return protocol.msg_mobid_poll()
 
         if r1 == 'SIGNATURE':
+            evlog.log('Received SIGNATURE from DDS')
             return self.__hts_vote(r2)
 
         return self.__return_mid_error(r1)

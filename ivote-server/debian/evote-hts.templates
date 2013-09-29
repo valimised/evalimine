@@ -1,0 +1,5 @@
+Template: evote-hts/log_server_ip
+Type: string
+Description: Logiserveri URL:
+ Logiserveri URL (host:port) lisatakse rsyslog'i konfiguratsiooni
+

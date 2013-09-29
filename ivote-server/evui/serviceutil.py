@@ -27,6 +27,7 @@ SCRIPT_REGRIGHTS = "regrights.py"
 SCRIPT_HTS = "htsdisp.py"
 SCRIPT_INIT_CONF = "init_conf.py"
 SCRIPT_CONFIG_SRV = "config_common.py"
+SCRIPT_INSTALL_SRV = "installer.py"
 SCRIPT_CONFIG_DIGIDOC = "config_bdoc.py"
 SCRIPT_APPLY_CHANGES = "apply_changes.py"
 SCRIPT_REPLACE_CANDIDATES = "replace_candidates.py"
@@ -189,19 +190,16 @@ def do_set_hts_conf():
     hts_ip = uiutil.ask_string("Sisesta HTSi IP aadress", None, None, def_ip)
     hts_port = uiutil.ask_int("Sisesta HTSi port", def_port, 0, 65535)
 
-    if reg.check(['common', 'htspath']):
-        try:
-            def_url = reg.read_string_value(['common'], 'htspath').value
-        except:
-            def_url = None
-    else:
-        def_url = None
+    try:
+        def_url = Election().get_hts_path()
+    except:
+        def_url = "/hts.cgi"
     hts_url = uiutil.ask_string("Sisesta HTSi URL", None, None, def_url)
 
     try:
         def_verify = Election().get_hts_verify_path()
     except:
-        def_verify = None
+        def_verify = "/hts-verify-vote.cgi"
     hts_verify = uiutil.ask_string("Sisesta HTSi hääle kontrolli URL", \
             None, None, def_verify)
 
@@ -416,6 +414,23 @@ def do_new_election():
     cmd = '%s %s %d "%s"' % (SCRIPT_INIT_CONF, elid, eltype, description)
     os.system(cmd)
 
+def restart_apache():
+    import subprocess
+
+    prompt = "Palun sisestage veebiserveri taaskäivitamiseks parool: "
+    retcode = subprocess.call(\
+            ["sudo", "-p", prompt, "service", "apache2", "restart"])
+    if retcode == 0:
+        print "Veebiserver edukalt taaskäivitatud"
+    elif retcode == 1:
+        print "Probleem taaskäivitamisel, vale parool?"
+    else:
+        print "Probleem taaskäivitamisel, vea kood on ", retcode
+
+def do_bdoc_conf_hes():
+    do_bdoc_conf()
+    restart_apache()
+
 def do_bdoc_conf():
     bdoc_conf = uiutil.ask_dir_name(\
         "Sisesta sertifikaatide konfiguratsioonipuu asukoht")
@@ -429,6 +444,23 @@ def do_enable_voters_list():
 def do_disable_voters_list():
     Election().toggle_check_voters_list(False)
     print "Hääletajate nimekirja kontroll keelatud\n"
+
+def do_install():
+
+    install_file = \
+        uiutil.ask_file_name_from_cd("Sisesta paigaldusfaili asukoht")
+
+    cmd = "%s verify %s" % (SCRIPT_INSTALL_SRV, install_file)
+    ret = os.system(cmd)
+
+    if not ret == 0:
+        return
+
+    if not uiutil.ask_yes_no("Kas paigaldame valimised?"):
+        return
+
+    cmd = "%s install %s" % (SCRIPT_INSTALL_SRV, install_file)
+    os.system(cmd)
 
 def do_hlr_conf(elid):
     station_file = \
@@ -615,5 +647,22 @@ def do_verification_conf():
 
     Election().set_verification_time(verif_time)
     Election().set_verification_count(verif_count)
+
+
+def do_get_verification_conf():
+    try:
+        def_time = Election().get_verification_time()
+    except (IOError, LookupError):
+        def_time = "puudub"
+
+    try:
+        def_count = Election().get_verification_count()
+    except (IOError, LookupError):
+        def_count = "puudub"
+
+    print "Taimaut hääle kontrollimiseks minutites: %s" % def_time
+    print "Lubatud arv kordusi hääle kontrollimiseks: %s" % def_count
+
+
 
 # vim:set ts=4 sw=4 et fileencoding=utf8:

@@ -115,6 +115,11 @@ def electionresult_file(elid):
                                         evcommon.ELECTIONRESULT_STR, \
                                         ['questions', elid, 'hlr', 'output'])
 
+def electionresultstat_file(elid):
+    return EvFile(evcommon.ELECTIONRESULT_STAT_FILE, \
+                                        evcommon.ELECTIONRESULT_STAT_STR, \
+                                        ['questions', elid, 'hlr', 'output'])
+
 def add_hts_files_to_table(elid, table):
     import os
     reg = Election().get_root_reg()

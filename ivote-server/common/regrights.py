@@ -17,6 +17,7 @@ from election import Election
 import formatutil
 import bdocpython
 import bdocpythonutils
+import evlogdata
 
 G_RIGHTS = ['TYHIS',
         'VALIK',
@@ -34,6 +35,54 @@ def _proper_right(right):
     Kas volitus on meile sobiv?
     """
     return right in G_RIGHTS
+
+
+class VoteLog:
+
+    def __init__(self, bdocdata):
+        self.alines = []
+        self.elines = []
+        self.bdoc = bdocpythonutils.BDocContainer()
+        self.bdoc.load_bytes(bdocdata)
+        self.bdoc.validateflex()
+
+        _doc_count = len(self.bdoc.documents)
+        if _doc_count == 0:
+            raise Exception, "BDoc ei sisalda ühtegi andmefaili"
+
+    def log_signingcert(self):
+        if len(self.bdoc.signatures) != 1:
+           raise Exception, "BDoc sisaldab rohkem kui ühte allkirja"
+
+        _, sig_content = self.bdoc.signatures.popitem()
+
+        start = '<X509Certificate>'
+        end = '</X509Certificate>'
+        cert = sig_content.partition(start)[2].partition(end)[0].strip()
+
+        alog, elog = evlogdata.get_cert_data_log(cert, 'signingcert', True)
+        self.alines.append(alog)
+
+        if elog:
+            self.elines.append(elog)
+
+    def log_documents(self):
+        for el in self.bdoc.documents:
+            self.alines.append(evlogdata.get_vote(el, self.bdoc.documents[el]))
+
+
+def analyze_signature_for_log(bdocdata):
+    vl = VoteLog(bdocdata)
+    vl.log_signingcert()
+    return vl.alines, vl.elines
+
+
+def analyze_vote_for_log(bdocdata):
+    vl = VoteLog(bdocdata)
+    vl.log_signingcert()
+    vl.log_documents()
+    return vl.alines, vl.elines
+
 
 def analyze_vote(bdocfile, config):
 

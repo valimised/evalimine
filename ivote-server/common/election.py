@@ -448,6 +448,9 @@ class Election:
     def refuse_new_voters(self):
         self.reg.ensure_key(['common', 'nonewvoters'])
 
+    def allow_new_voters(self):
+        return not self.reg.check(['common', 'nonewvoters'])
+
     def is_config_verification_done(self):
         try:
             self.get_verification_time()

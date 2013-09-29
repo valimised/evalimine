@@ -8,16 +8,13 @@ USER=hts
 if [ "$1" = remove ] ; then
 	rm -f /etc/apache2/sites-enabled/hts-apache
 	rm -f /etc/apache2/sites-available/hts-apache
+	invoke-rc.d apache2 restart || true
 fi
 
 if [ "$1" = purge ] ; then
-	rm -f /etc/apache2/sites-enabled/hts-apache
-	rm -f /etc/apache2/sites-available/hts-apache
-	# remove user
 	deluser --quiet $USER > /dev/null || true
 fi
 
-invoke-rc.d apache2 restart || true
 
 #DEBHELPER#
 

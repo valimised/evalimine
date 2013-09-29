@@ -74,7 +74,6 @@ class BDocConfig:
         self.__ocsp = {}
         self.__param = {}
         self.__oids = []
-        self.__midca = None
 
     def __del__(self):
         pass
@@ -121,35 +120,6 @@ class BDocConfig:
             for oid in oids:
                 self.__oids.append(oid.text.strip())
 
-    def _handle_midca(self, elems):
-        import base64
-        if len(elems) > 1:
-            raise Exception, 'Only one Mobile-ID CA allowed'
-
-        for _el in elems:
-            if len(_el) != 1:
-                raise Exception, 'Invalid Mobile-ID CA configuration'
-
-            if (_el[0].tag != 'cert'):
-                raise Exception, 'Invalid Mobile-ID CA configuration - tag'
-
-            _certf = os.path.join(self.__root, 'ca', _el[0].text)
-
-            ff = None
-            data = None
-            try:
-                ff = open(_certf, 'r')
-                data = ff.read()
-            finally:
-                if ff:
-                    ff.close()
-
-            data = data.replace('-----BEGIN CERTIFICATE-----', '')
-            data = data.replace('-----END CERTIFICATE-----', '')
-            self.__midca = bdocpython.CertificateData()
-            self.__midca.decode(base64.b64decode(data))
-
-
     def save(self, dirname):
         import stat
         if os.path.exists(dirname):
@@ -188,8 +158,6 @@ class BDocConfig:
         _policies_elems = _tree.getiterator('policies')
         self._handle_policies(_policies_elems)
 
-        _midca_elems = _tree.getiterator('midca')
-        self._handle_midca(_midca_elems)
 
     def _ocsp_cert_path(self, el):
         return os.path.join(self.__root, 'ocsp', self.__ocsp[el]['cert'])
@@ -227,14 +195,8 @@ class BDocConfig:
         if cert == None:
             raise Exception, 'Invalid certificate'
 
-        if self.__midca == None:
-            return False, 'Reject: access not configured'
-
         cd = bdocpython.CertificateData()
         cd.decode(cert)
-
-        if not (cd.issuer_name == self.__midca.subject_name):
-            return False, 'Reject: issuer'
 
         for pol in bdocpython.list_policies(cert):
             if self.have_oid(pol):

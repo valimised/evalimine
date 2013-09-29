@@ -1,0 +1,13 @@
+Template: evote-hes/log_server_ip
+Type: string
+Description: Logiserveri URL:
+ Logiserveri URL (host:port) lisatakse rsyslog'i konfiguratsiooni
+
+Template: evote-hes/information
+Type: note
+Description: Veebiserver vajab täiendavat seadistamist!
+ Apache veebiserverit ei taaskäivitatud, kuna laadimata on
+    * veebiserveri privaatvõti ja sertifikaat
+    * juursertifikaadid
+ Juursertifikaatide laadimine toimub HES operaatoriliidesest
+

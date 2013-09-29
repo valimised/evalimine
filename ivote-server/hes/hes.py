@@ -66,6 +66,21 @@ class VoteChecker:
             conf = bdocpythonutils.BDocConfig()
             conf.load(Election().get_bdoc_conf())
 
+            alines = []
+            elines = []
+            if mobid:
+                alines, elines = \
+                        regrights.analyze_signature_for_log(self._decoded_vote)
+            else:
+                alines, elines = \
+                        regrights.analyze_vote_for_log(self._decoded_vote)
+
+            for el in alines:
+                evlog.log(el)
+
+            for el in elines:
+                evlog.log_error(el)
+
             res = None
             if mobid:
                 res = regrights.check_vote_hes_mobid(self._decoded_vote, conf)
@@ -163,6 +178,7 @@ class HTSConnector:
             return False
 
         return True
+
 
 
 class CandidateListExtractor:

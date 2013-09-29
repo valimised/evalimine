@@ -120,6 +120,8 @@ class HTSRevoke(htsbase.HTSBase):
                     pass
                 elif htscommon.REVOKE_REASON_PATTERN.match(vote_file):
                     pass
+                elif htscommon.VOTE_VERIFICATION_ID_FILENAME == vote_file:
+                    pass
                 else:
                     vc.inc_unknown()
 
@@ -173,6 +175,8 @@ class HTSRevoke(htsbase.HTSBase):
                 elif htscommon.AUTOREVOKED_VOTE_PATTERN.match(vote_file):
                     pass
                 elif htscommon.REVOKE_REASON_PATTERN.match(vote_file):
+                    pass
+                elif htscommon.VOTE_VERIFICATION_ID_FILENAME == vote_file:
                     pass
                 else:
                     vc.inc_unknown()

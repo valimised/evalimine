@@ -5,28 +5,24 @@ set -e
 NAME=evote-hes
 USER=hes
 
+APA1=/etc/apache2/sites-enabled/hes-apache
+APA2=/etc/apache2/sites-available/hes-apache
+
 PORTS_CONF=/etc/apache2/ports.conf.old
 if [ -e $PORTS_CONF ] ; then
 	mv $PORTS_CONF /etc/apache2/ports.conf
 fi
 
 if [ "$1" = remove ] ; then
-	rm -f /etc/apache2/sites-enabled/hes-apache
-	rm -f /etc/apache2/sites-available/hes-apache
-#	rm -f /etc/apache2/sites-enabled/hes-stats-apache
-#	rm -f /etc/apache2/sites-available/hes-stats-apache
+	if [ -e $APA1 ] ; then rm -f $APA1 ; fi
+	if [ -e $APA2 ] ; then rm -f $APA2 ; fi
+	invoke-rc.d apache2 stop || true
 fi
 
 if [ "$1" = purge ] ; then
-	rm -f /etc/apache2/sites-enabled/hes-apache
-	rm -f /etc/apache2/sites-available/hes-apache
-#	rm -f /etc/apache2/sites-enabled/hes-stats-apache
-#	rm -f /etc/apache2/sites-available/hes-stats-apache
-	# remove user
 	deluser --quiet $USER > /dev/null || true
 fi
 
-invoke-rc.d apache2 restart || true
 
 #DEBHELPER#
 

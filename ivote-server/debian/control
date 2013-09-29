@@ -2,18 +2,18 @@ Source: evote
 Section: misc
 Priority: optional
 Maintainer: Sven Heiberg <sven@cyber.ee>
-Build-Depends: debhelper, devscripts, python2.7-dev, libxml2-dev, libssl-dev, swig, chrpath, libtool, automake, python-gdbm, python-zsi, xsdcxx, libxerces-c-dev, libxml-security-c-dev
+Build-Depends: build-essential, fakeroot, debhelper, devscripts, python2.7-dev, libxml2-dev, libssl-dev, swig, chrpath, libtool, automake, python-gdbm, python-zsi, xsdcxx, libxerces-c-dev, libxml-security-c-dev
 Standards-Version: 3.8.0
 
 Package: evote-common
 Architecture: any
-Depends: ${shlibs:Depends}, ${misc:Depends}, dvd+rw-tools, openssl, lpr, python2.7, python2.7-gdbm, autofs, console-tools, locales, less, libxerces-c3.1, libxml-security-c16
+Depends: ${shlibs:Depends}, ${misc:Depends}, dvd+rw-tools, openssl, lpr, python2.7, python-gdbm, autofs, kbd, locales, less, libxerces-c3.1, libxml-security-c16, python-m2crypto, rsyslog
 Description: E-hääletamise üldised komponendid
  Üldised komponendid
 
 Package: evote-hts
 Architecture: all
-Depends: ${misc:Depends}, evote-common (>= 1.1.1), adduser, python2.7, apache2, sysstat, openssl, rst2pdf, fontconfig, ttf-dejavu-core
+Depends: ${misc:Depends}, evote-common (>= 1.1.1), adduser, python2.7, apache2, sysstat, openssl, rst2pdf, fontconfig, ttf-dejavu-core, python-psutil
 Description: E-hääletamise häältetalletusserver (HTS)
  Häältetalletusserver
 
@@ -25,13 +25,13 @@ Description: E-hääletamise häältelugemisrakendus (HLR)
 
 Package: evote-hes
 Architecture: all
-Depends: ${misc:Depends}, evote-common (>= 1.1.1), adduser, apache2, python2.7, sysstat, openssl, python-zsi
+Depends: ${misc:Depends}, evote-common (>= 1.1.1), adduser, apache2, python2.7, sysstat, openssl, python-zsi, python-psutil, sudo
 Description: E-hääletamise häälteedastusserver (HES)
  Häälteedastusserver
 
 Package: evote-prepare
 Architecture: all
-Depends: ${misc:Depends}, python2.7, python2.7-gdbm
+Depends: ${misc:Depends}, python2.7, python-gdbm
 Description: E-hääletamise abiskriptid
  Seadistusperioodi utiliidid
 

@@ -22,7 +22,7 @@ import syslog
 import singleton
 import sessionid
 import evcommon
-
+import urllib
 
 def log(msg):
     AppLog().log(msg)
@@ -40,6 +40,9 @@ class RevLogFormat:
 
     def __init__(self):
         pass
+
+    def keep(self):
+        return True
 
     def message(self, args):
 
@@ -61,7 +64,7 @@ class RevLogFormat:
         line.append(time.strftime("%Y%m%d%H%M%S", newtime))
         line.append(args['operaator'])
         line.append(args['pohjus'])
-        logstring = "\t".join(line) + "\n"
+        logstring = "\t".join(line)
         return logstring
 
 
@@ -69,6 +72,9 @@ class EvLogFormat:
 
     def __init__(self):
         pass
+
+    def keep(self):
+        return True
 
     def message(self, args):
         line = []
@@ -88,10 +94,12 @@ class EvLogFormat:
         line.append(str(args['ringkond_omavalitsus']))
         # suhteline-ringkonna-number 1*10DIGIT
         line.append(str(args['ringkond']))
-        # omavalitsuse-number 1*10DIGIT
-        line.append(str(args['jaoskond_omavalitsus']))
-        # suhteline-valimisjaoskonna-number 1*10DIGIT
-        line.append(str(args['jaoskond']))
+        if contains(args, 'jaoskond_omavalitsus'):
+            # omavalitsuse-number 1*10DIGIT
+            line.append(str(args['jaoskond_omavalitsus']))
+        if contains(args, 'jaoskond'):
+            # suhteline-valimisjaoskonna-number 1*10DIGIT
+            line.append(str(args['jaoskond']))
 
         if args['tyyp'] in [1, 2, 3]:
             #*1valija-andmed =
@@ -100,7 +108,7 @@ class EvLogFormat:
         if args['tyyp'] == 2:
             # pohjus 1*100UTF-8-CHAR
             line.append(args['pohjus'])
-        logstring = "\t".join(line) + "\n"
+        logstring = "\t".join(line)
 
         return logstring
 
@@ -143,20 +151,20 @@ class AppLogFormat:
     def set_person(self, person):
         self.__pers_id = person
 
+    def keep(self):
+        return False
+
     def message(self, args):
-        logstring = ''
-        lines = args['message'].split('\n')
-        for line in lines:
-            logstring += "%s (%s:%d:%d:%s:%s:%s:%s): %s\n" % (
-                time.strftime("%Y-%m-%d %H:%M:%S"),
-                self.__app,
-                self.__sess,
-                self.__psess,
-                sessionid.voting(),
-                sessionid.apache(),
-                self.__elid,
-                self.__pers_id,
-                line)
+        logstring = "%s (%s:%d:%d:%s:%s:%s:%s): %s" % (
+            time.strftime("%Y-%m-%d %H:%M:%S"),
+            self.__app,
+            self.__sess,
+            self.__psess,
+            sessionid.voting(),
+            sessionid.apache(),
+            self.__elid,
+            self.__pers_id,
+            args['message'])
         return logstring
 
 class LogFile:
@@ -262,20 +270,24 @@ class Logger(object):
         else:
             syslog.syslog(prio | self.__fac, self.__last_message)
 
-    def log_info(self, **args):
+    def _do_log(self, level, **args):
         self.__last_message = self._form.message(args)
+        if not self._form.keep():
+            self.__last_message = urllib.quote(self.__last_message, \
+                    ' !"#&\'()*+,-./:;<=>?@\[\]_|\t]äöüõÄÖÜÕ')
+
+        self.__last_message += "\n"
         self._log.write(self.__last_message)
-        self._log_syslog(syslog.LOG_INFO)
+        self._log_syslog(level)
+
+    def log_info(self, **args):
+        self._do_log(syslog.LOG_INFO, **args)
 
     def log_err(self, **args):
-        self.__last_message = self._form.message(args)
-        self._log.write(self.__last_message)
-        self._log_syslog(syslog.LOG_ERR)
+        self._do_log(syslog.LOG_ERR, **args)
 
     def log_debug(self, **args):
-        self.__last_message = self._form.message(args)
-        self._log.write(self.__last_message)
-        self._log_syslog(syslog.LOG_DEBUG)
+        self._do_log(syslog.LOG_DEBUG, **args)
 
     def lines_in_file(self):
         return self._log.line_count()

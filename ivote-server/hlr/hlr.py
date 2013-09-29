@@ -28,7 +28,7 @@ import inputlists
 import formatutil
 
 VOTING_ID_LENGTH = 28
-DECRYPT_PROG = "threaded_decrypt"
+DECRYPT_PROGRAM = "threaded_decrypt"
 CORRUPTED_VOTE = "xxx"
 
 ENV_EVOTE_TMPDIR = "EVOTE_TMPDIR"
@@ -76,7 +76,7 @@ class DecodedVoteList(inputlists.InputList):
             if not self.jsk.has_ring((lst[2], lst[3])):
                 self.errcons('Olematu ringkond')
                 return False
-            if not self.jsk.has_dist((lst[2], lst[3]), (lst[0], lst[1])):
+            if not self.jsk.has_stat((lst[2], lst[3]), (lst[0], lst[1])):
                 self.errcons('Olematu jaoskond')
                 return False
 
@@ -115,10 +115,12 @@ class ChoicesCounter:
 
     def __init__(self):
         self.__cdata = {}
+        self.__ddata = {}
         self.__count = 0
 
-    def add_vote(self, ring, dist, choice):
-        self.__cdata[ring][dist][choice] += 1
+    def add_vote(self, ring, stat, choice):
+        self.__cdata[ring][stat][choice] += 1
+        self.__ddata[ring][choice] += 1
 
     def _to_key(self, reg_key):
         lst = reg_key.split('_')
@@ -128,20 +130,24 @@ class ChoicesCounter:
         for rk in reg.list_keys(['hlr', 'choices']):
             r_key = self._to_key(rk)
             self.__cdata[r_key] = {}
-            for dist in reg.list_keys(['hlr', 'choices', rk]):
-                d_key = self._to_key(dist)
+            if not r_key in self.__ddata:
+                self.__ddata[r_key] = {}
+            for stat in reg.list_keys(['hlr', 'choices', rk]):
+                d_key = self._to_key(stat)
                 self.__cdata[r_key][d_key] = {}
-                for choi in reg.list_keys(['hlr', 'choices', rk, dist]):
+                for choi in reg.list_keys(['hlr', 'choices', rk, stat]):
                     self.__cdata[r_key][d_key][choi] = 0
+                    if not choi in self.__ddata[r_key]:
+                        self.__ddata[r_key][choi] = 0
 
     def has_ring(self, ring):
         return (ring in self.__cdata)
 
-    def has_dist(self, ring, dist):
-        return (dist in self.__cdata[ring])
+    def has_stat(self, ring, stat):
+        return (stat in self.__cdata[ring])
 
-    def has_choice(self, ring, dist, choice):
-        return (choice in self.__cdata[ring][dist])
+    def has_choice(self, ring, stat, choice):
+        return (choice in self.__cdata[ring][stat])
 
     def count(self):
         return self.__count
@@ -151,17 +157,26 @@ class ChoicesCounter:
         keys.sort(cmp_method)
         return keys
 
-    def output(self, out_f):
+    def outputstat(self, out_f):
         self.__count = 0
 
         for rk in self._sort(self.__cdata, ringkonnad_cmp):
-            for dist in self._sort(self.__cdata[rk], ringkonnad_cmp):
-                for choice in self._sort(self.__cdata[rk][dist], valikud_cmp):
-                    self.__count += self.__cdata[rk][dist][choice]
-                    count_line = [dist[0], dist[1], rk[0], rk[1],
-                        str(self.__cdata[rk][dist][choice]),
+            for stat in self._sort(self.__cdata[rk], ringkonnad_cmp):
+                for choice in self._sort(self.__cdata[rk][stat], valikud_cmp):
+                    self.__count += self.__cdata[rk][stat][choice]
+                    count_line = [stat[0], stat[1], rk[0], rk[1],
+                        str(self.__cdata[rk][stat][choice]),
                         choice.split('.')[1]]
                     out_f.write("\t".join(count_line) + "\n")
+
+    def outputdist(self, out_f):
+        for rk in self._sort(self.__ddata, ringkonnad_cmp):
+            for choice in self._sort(self.__ddata[rk], valikud_cmp):
+                count_line = [rk[0], rk[1],
+                    str(self.__ddata[rk][choice]),
+                    choice.split('.')[1]]
+                out_f.write("\t".join(count_line) + "\n")
+
 
 
 class HLR:
@@ -185,6 +200,7 @@ class HLR:
         tmpreg.ensure_key([])
         tmpreg.delete_sub_keys([])
         self.output_file = tmpreg.path(['decrypted_votes'])
+        self.decrypt_prog = DECRYPT_PROGRAM
         self.__cnt = ChoicesCounter()
 
     def __del__(self):
@@ -205,7 +221,7 @@ class HLR:
         exit_code = 0
 
         try:
-            exit_code = subprocess.call([DECRYPT_PROG] + args)
+            exit_code = subprocess.call([self.decrypt_prog] + args)
         except OSError, oserr:
             errstr = "Häälte faili '%s' dekrüpteerimine nurjus: %s" % \
                 (input_file, oserr)
@@ -271,16 +287,12 @@ class HLR:
                 self._log4.log_info(
                         tyyp=4,
                         haal=base64.decodestring(votelst[4]),
-                        jaoskond_omavalitsus=votelst[0],
-                        jaoskond=votelst[1],
                         ringkond_omavalitsus=votelst[2],
                         ringkond=votelst[3])
             else:
                 self._log5.log_info(
                         tyyp=5,
                         haal=base64.decodestring(votelst[4]),
-                        jaoskond_omavalitsus=votelst[0],
-                        jaoskond=votelst[1],
                         ringkond_omavalitsus=votelst[2],
                         ringkond=votelst[3])
             return True
@@ -298,19 +310,29 @@ class HLR:
         return True
 
     def _write_result(self):
-        electionresult_file = \
-            self._reg.path(['hlr', 'output', evcommon.ELECTIONRESULT_FILE])
-        out_f = file(electionresult_file, 'w')
+        result_dist_fn = self._reg.path(\
+                ['hlr', 'output', evcommon.ELECTIONRESULT_FILE])
+        out_f = file(result_dist_fn, 'w')
         out_f.write(evcommon.VERSION + '\n' + self._elid + '\n')
-        self.__cnt.output(out_f)
+        self.__cnt.outputdist(out_f)
         out_f.close()
-        ksum.store(electionresult_file)
+        ksum.store(result_dist_fn)
+
+        result_stat_fn = self._reg.path(\
+                ['hlr', 'output', evcommon.ELECTIONRESULT_STAT_FILE])
+        out_f = file(result_stat_fn, 'w')
+        out_f.write(evcommon.VERSION + '\n' + self._elid + '\n')
+        self.__cnt.outputstat(out_f)
+        out_f.close()
+        ksum.store(result_stat_fn)
+
         print "Hääled (%d) on loetud." % self.__cnt.count()
 
     def _check_logs(self):
         log_lines = 0
         log_lines = log_lines + self._log4.lines_in_file()
         log_lines = log_lines + self._log5.lines_in_file()
+        # remove header
         log_lines = log_lines - 6
         if log_lines != self.__cnt.count():
             errstr = \

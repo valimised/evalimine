@@ -11,6 +11,7 @@ COMMON_DIR=debian/evote-common
 PREPARE_DIR=debian/evote-prepare
 
 ETC_DIR=etc/evote
+SUDOERS_DIR=etc/sudoers.d
 BIN_DIR=usr/bin
 LIB_DIR=usr/lib
 SHARE_DIR=usr/share/evote
@@ -82,8 +83,10 @@ install-indep:
 	install -m 755 hts/purge_otps.py $(HTS_DIR)/$(SHARE_DIR)
 	install -m 755 cgi/hts-cgi.py $(HTS_DIR)/$(SHARE_DIR)/hts.cgi
 	install -m 755 cgi/hts-verify-vote-cgi.py $(HTS_DIR)/$(SHARE_DIR)/hts-verify-vote.cgi
-	install -m 644 cgi/hts-apache.conf $(HTS_DIR)/$(ETC_DIR)
+	install -m 644 etc/hts-apache.conf $(HTS_DIR)/$(ETC_DIR)
+	install -m 644 etc/hts-syslog.conf $(HTS_DIR)/$(ETC_DIR)
 
+	install -m 755 common/monitoring.py $(HTS_DIR)/$(SHARE_DIR)/hts_monitor.py
 	install -m 755 common/apply_changes.py $(HTS_DIR)/$(BIN_DIR)
 	install -m 755 common/hts_state.py $(HTS_DIR)/$(BIN_DIR)
 	install -m 755 common/show_voters_files_history.py $(HTS_DIR)/$(BIN_DIR)
@@ -106,8 +109,11 @@ install-indep:
 	install -m 755 cgi/mobid-cgi.py $(HES_DIR)/$(WWW_DIR)/mobid.cgi
 	install -m 755 cgi/hes-verify-vote-cgi.py $(HES_DIR)/$(WWW_DIR)/hes-verify-vote.cgi
 
-	install -m 644 cgi/hes-apache.conf $(HES_DIR)/$(ETC_DIR)
+	install -m 644 etc/hes-apache.conf $(HES_DIR)/$(ETC_DIR)
+	install -m 644 etc/hes-syslog.conf $(HES_DIR)/$(ETC_DIR)
+	install -m 0440 etc/hes-sudo $(HES_DIR)/$(SUDOERS_DIR)
 
+	install -m 755 common/monitoring.py $(HES_DIR)/$(SHARE_DIR)/hes_monitor.py
 	install -m 755 common/apply_changes.py $(HES_DIR)/$(BIN_DIR)
 	install -m 755 common/config_hth.py $(HES_DIR)/$(BIN_DIR)
 	install -m 755 common/check_consistency.py $(HES_DIR)/$(BIN_DIR)
@@ -139,6 +145,7 @@ install-arch:
 	install -m 644 common/election.py $(COMMON_DIR)/$(PACKAGE_DIR)
 	install -m 644 common/evcommon.py $(COMMON_DIR)/$(PACKAGE_DIR)
 	install -m 644 common/evlog.py $(COMMON_DIR)/$(PACKAGE_DIR)
+	install -m 644 common/evlogdata.py $(COMMON_DIR)/$(PACKAGE_DIR)
 	install -m 644 common/evmessage.py $(COMMON_DIR)/$(PACKAGE_DIR)
 	install -m 644 common/evreg.py $(COMMON_DIR)/$(PACKAGE_DIR)
 	install -m 644 common/evstrings.py $(COMMON_DIR)/$(PACKAGE_DIR)
@@ -153,12 +160,16 @@ install-arch:
 	install -m 644 common/singleton.py $(COMMON_DIR)/$(PACKAGE_DIR)
 	install -m 644 common/ticker.py $(COMMON_DIR)/$(PACKAGE_DIR)
 
+	install -m 644 cgi/cgilog.py $(COMMON_DIR)/$(PACKAGE_DIR)
+	install -m 644 cgi/cgivalidator.py $(COMMON_DIR)/$(PACKAGE_DIR)
+
 	install -m 644 pybdoc/python/bdocpython.py $(COMMON_DIR)/$(PACKAGE_DIR)
 	chrpath -d pybdoc/python/.libs/_bdocpython.so
 	install -m 644 pybdoc/python/.libs/_bdocpython.so $(COMMON_DIR)/$(PACKAGE_DIR)
 	install -m 644 pybdoc/python/bdocpythonutils.py $(COMMON_DIR)/$(PACKAGE_DIR)
 	install -m 644 pybdoc/src/.libs/libbdoc.so.0 $(COMMON_DIR)/$(LIB_DIR)
 
+	install -m 755 common/installer.py $(COMMON_DIR)/$(BIN_DIR)
 	install -m 755 common/config_common.py $(COMMON_DIR)/$(BIN_DIR)
 	install -m 755 common/init_conf.py $(COMMON_DIR)/$(BIN_DIR)
 	install -m 755 common/config_bdoc.py $(COMMON_DIR)/$(BIN_DIR)
@@ -194,6 +205,7 @@ binary-common:
 	dh_installman
 	dh_installcron
 	dh_installchangelogs
+	dh_installdebconf
 	dh_link
 	dh_strip
 	dh_compress

@@ -18,6 +18,9 @@ import middisp
 import protocol
 import evlog
 import sessionid
+import cgivalidator
+import cgilog
+import election
 import os
 
 if not evcommon.testrun():
@@ -25,22 +28,48 @@ if not evcommon.testrun():
     form = cgi.FieldStorage()
     result = protocol.msg_error_technical()
     mid = middisp.MIDDispatcher()
+    evlog.AppLog().set_app('MID')
 
-    if form.has_key(evcommon.POST_SESS_ID):
-        sessionid.setsid(form.getvalue(evcommon.POST_SESS_ID))
-        if form.has_key(evcommon.POST_MID_POLL):
-            result = mid.poll()
-        else:
-            result = mid.init_sign(form)
-    else:
-        if form.has_key(evcommon.POST_PHONENO):
-            if not os.path.exists('/var/evote/registry/common/nonewvoters'):
-                result = mid.init_auth(form.getvalue(evcommon.POST_PHONENO))
+    try:
+        has_sess = form.has_key(evcommon.POST_SESS_ID)
+        has_poll = form.has_key(evcommon.POST_MID_POLL)
+        if has_sess:
+            if cgivalidator.validate_sessionid(form):
+                sessionid.setsid(form.getvalue(evcommon.POST_SESS_ID))
+            if has_poll:
+                req_params = [evcommon.POST_MID_POLL, evcommon.POST_SESS_ID]
+                res, logline = cgivalidator.validate_form(form, req_params)
+                if res:
+                    result = mid.poll()
+                else:
+                    evlog.log_error(logline)
             else:
-                a, b = protocol.plain_error_election_off_after()
-                result = protocol.msg_error(a, b)
+                req_params = [evcommon.POST_EVOTE, evcommon.POST_SESS_ID]
+                res, logline = cgivalidator.validate_form(form, req_params)
+                if res:
+                    cgilog.do_log("vote/auth")
+                    result = mid.init_sign(form)
+                else:
+                    cgilog.do_log_error('vote/auth/err')
+                    evlog.log_error(logline)
         else:
-            evlog.log_error('Vigane POST päring: %s' % form.keys())
+            req_params = [evcommon.POST_PHONENO]
+            res, logline = cgivalidator.validate_form(form, req_params)
+            if res:
+                cgilog.do_log("cand/auth")
+                phoneno = form.getvalue(evcommon.POST_PHONENO)
+                evlog.log("PHONENO: " + phoneno)
+                if election.Election().allow_new_voters():
+                    result = mid.init_auth(phoneno)
+                else:
+                    a, b = protocol.plain_error_election_off_after()
+                    result = protocol.msg_error(a, b)
+            else:
+                cgilog.do_log_error('cand/auth/err')
+                evlog.log_error(logline)
+    except:
+        evlog.log_exception()
+        result = protocol.msg_error_technical()
 
     protocol.http_response(result)
     cgi.sys.exit(0)

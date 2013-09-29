@@ -3,26 +3,26 @@ include rules.mk
 .DEFAULT_GOAL=
 
 all:
-	for i in $(PYTHON_SUBDIRS) ; \
-	do \
-		make -C $$i test; \
-	done
 
 pylint:
 	for i in $(PYTHON_SUBDIRS) ; \
 	do \
-		make -C $$i check; \
+		make -C $$i intlint; \
 	done
 
-pycheck:
+pychecker:
 	for i in $(PYTHON_SUBDIRS) ; \
 	do \
-		make -C $$i checker; \
+		make -C $$i intchecker; \
 	done
+
+check: all pylint pychecker
 
 ARCH:=$(shell dpkg-architecture -qDEB_HOST_ARCH)
 debuild:
 	debuild -i -I || echo "debuild $(ARCH)"
+
+repo:
 	./debian/repo.py ../evote-$(ARCH) .. $(ARCH)
 
 deb: pybdoc/Makefile
