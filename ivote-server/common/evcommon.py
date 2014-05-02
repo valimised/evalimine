@@ -4,7 +4,7 @@
 """
 Copyright: Eesti Vabariigi Valimiskomisjon
 (Estonian National Electoral Committee), www.vvk.ee
-Written in 2004-2013 by Cybernetica AS, www.cyber.ee
+Written in 2004-2014 by Cybernetica AS, www.cyber.ee
 
 This work is licensed under the Creative Commons
 Attribution-NonCommercial-NoDerivs 3.0 Unported License.
@@ -44,7 +44,7 @@ POST_EVOTE = "vote"
 # isikukoodi järgi hääletamise fakti kontroll
 POST_PERSONAL_CODE = "ik"
 # valijate nimekirjade failide kooskõlalisuse räsi
-POST_VOTERS_FILES_SHA1 = "hash"
+POST_VOTERS_FILES_SHA256 = "hash"
 # sessiooniidentifikaator
 POST_SESS_ID = "session"
 
@@ -70,10 +70,8 @@ EVOTE_CERT_ERROR = '2'
 EVOTE_VOTER_ERROR = '3'
 # Mobiil-ID ei ole veel vastust andnud
 EVOTE_POLL = '4'
-# Mobiil-ID sertifikaat ei ole hääletamiseks sobiv
-EVOTE_MID_POLICY_ERROR = '5'
 # Mobiil-ID komponendi viga
-EVOTE_MID_ERROR = '6'
+EVOTE_MID_ERROR = '5'
 
 
 # HES <-> HTS vaheliste protokollide väärtused
@@ -120,18 +118,20 @@ DEBUG_LOG_FILE = "ivoting_debug_log"
 OCSP_LOG_FILE = "ivoting_ocsp_log"
 VOTER_LIST_LOG_FILE = "valijate_nimekirjade_vigade_logi"
 REVLOG_FILE = "tuhistamiste_ennistamiste_logi"
+ELECTIONRESULT_ZIP_FILE = "haaletamistulemus.zip"
 ELECTIONRESULT_FILE = "haaletamistulemus"
-ELECTIONRESULT_SHA1_FILE = "haaletamistulemus.sha1"
+ELECTIONRESULT_SHA256_FILE = "haaletamistulemus.sha256"
 ELECTIONRESULT_STAT_FILE = "haaletamistulemusjaosk"
-ELECTIONRESULT_STAT_SHA1_FILE = "haaletamistulemusjaosk.sha1"
+ELECTIONRESULT_STAT_SHA256_FILE = "haaletamistulemusjaosk.sha256"
 ELECTIONS_RESULT_FILE = "loendamisele_minevate_haalte_nimekiri"
-ELECTIONS_RESULT_SHA1_FILE = "loendamisele_minevate_haalte_nimekiri.sha1"
+ELECTIONS_RESULT_SHA256_FILE = "loendamisele_minevate_haalte_nimekiri.sha256"
 ELECTORSLIST_FILE = "haaletanute_nimekiri"
-ELECTORSLIST_SHA1_FILE = "haaletanute_nimekiri.sha1"
-ELECTORSLIST_FILE_TMP = "haaletanute_nimekiri_tmp"
-STATUSREPORT_FILE = "HTSi_vaheauditi_aruanne"
+ELECTORSLIST_SHA256_FILE = "haaletanute_nimekiri.sha256"
+ELECTORSLIST_FILE_TMP = "haaletanute_nimekiri.tmp"
+ELECTORSLIST_FILE_PDF = "haaletanute_nimekiri.pdf"
+STATUSREPORT_FILE = "hts_vaheauditi_aruanne"
 REVREPORT_FILE = "tuhistamiste_ennistamiste_aruanne"
-REVREPORT_SHA1_FILE = "tuhistamiste_ennistamiste_aruanne.sha1"
+REVREPORT_SHA256_FILE = "tuhistamiste_ennistamiste_aruanne.sha256"
 
 LOG1_STR = "Vastuvõetud häälte logi (Log1)"
 LOG2_STR = "Tühistatud häälte logi (Log2)"
@@ -141,12 +141,15 @@ LOG5_STR = "Arvestatud häälte logi (Log5)"
 APPLICATION_LOG_STR = "Rakenduse logi"
 ERROR_LOG_STR = "Vigade logi"
 DEBUG_LOG_STR = "Turvalogi"
+OCSP_LOG_STR = "OCSP saadavuse logi"
 VOTER_LIST_LOG_STR = "Valijate nimekirjade vigade logi"
 REVLOG_STR = "Tühistamiste ja ennistamiste aruanne"
+ELECTIONRESULT_ZIP_STR = "Hääletamistulemus (allkirjadega)"
 ELECTIONRESULT_STR = "Hääletamistulemus (ringkondade kaupa)"
 ELECTIONRESULT_STAT_STR = "Hääletamistulemus (jaoskondade kaupa)"
 ELECTIONS_RESULT_STR = "Loendamisele minevate häälte nimekiri"
 ELECTORSLIST_STR = "E-hääletanute nimekiri"
+ELECTORSLIST_PDF_STR = "E-hääletanute nimekiri (PDF)"
 STATUSREPORT_STR = "Vaheauditi aruanne"
 REVREPORT_STR = "Tühistus-/ennistusavalduse impordi aruanne"
 

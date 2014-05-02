@@ -4,7 +4,7 @@
 """
 Copyright: Eesti Vabariigi Valimiskomisjon
 (Estonian National Electoral Committee), www.vvk.ee
-Written in 2004-2013 by Cybernetica AS, www.cyber.ee
+Written in 2004-2014 by Cybernetica AS, www.cyber.ee
 
 This work is licensed under the Creative Commons
 Attribution-NonCommercial-NoDerivs 3.0 Unported License.
@@ -26,15 +26,9 @@ DVD_MIN_SPEED = 1
 DVD_MAX_SPEED = 256
 DVD_DEF_SPEED = 4
 DVD_SIZE = 4400000000                   # DVD 4,7 GB peaks olema siis 4,4GiB'i.
-DVD_CHUNK_SIZE = 1024 * 1024 * 1024     # 1GiB
 
 APACHE2_LOG_DIR = '/var/log/apache2'
-
-
-def get_backup_prefix(src_dir):
-    return "evote-%s-%s." % \
-        (os.path.basename(src_dir), time.strftime("%Y%m%d%-H%M%S"))
-
+SNAPSHOT_BACKUP_SCRIPT = '/usr/share/evote/evote_backup_snapshot'
 
 class DiskBurner:
     """Klass, mis aitab DVD-plaate kirjutada.
@@ -51,34 +45,30 @@ class DiskBurner:
             shutil.rmtree(self.work_dir, True)
         return
 
-    def _backup(self, src_dir, backup_prefix, chunk_size):
-        head, tail = os.path.split(src_dir)
-        tar = subprocess.Popen(['tar', '-C', head, '-czf', '-', tail], \
-                stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-        split = subprocess.Popen(\
-                ['split', '-b', '%s' % chunk_size, '-d', '-', \
-                    os.path.join(self.work_dir, backup_prefix)], \
-                        stdin=tar.stdout, stderr=subprocess.PIPE)
-        tar.wait()
-        split.wait()
+    def _backup(self, src_dir):
 
-        if (tar.returncode != 0):
-            print tar.stderr.read()
-            return False
-
-        if (split.returncode != 0):
-            print split.stderr.read()
+        prompt = "Sisestage varukoopiate tegemiseks parool:"
+        snapshot = subprocess.Popen(["sudo", "-p", prompt,
+                        SNAPSHOT_BACKUP_SCRIPT, src_dir,
+                        self.work_dir], stdout=subprocess.PIPE,
+                        stderr=subprocess.STDOUT)
+        # The pipe will be closed when the process dies.
+        # Read it before wait, so we won't have deadlock by waiting on
+        # process that's waiting on the output.
+        # The stderr=STDOUT means that stderr is redirected into stdout.
+        error = snapshot.stdout.read()
+        snapshot.wait()
+        if (snapshot.returncode != 0):
+            print error
             return False
 
         return True
 
     def backup_dir(self, src_dir, apache=False):
-        if not self._backup(src_dir, get_backup_prefix(src_dir), \
-                DVD_CHUNK_SIZE):
+        if not self._backup(src_dir):
             return False
 
-        if apache and not self._backup(APACHE2_LOG_DIR, \
-                get_backup_prefix(APACHE2_LOG_DIR), DVD_CHUNK_SIZE):
+        if apache and not self._backup(APACHE2_LOG_DIR):
             return False
 
         # Jagame jupid DVD'de kaupa kataloogidesse.

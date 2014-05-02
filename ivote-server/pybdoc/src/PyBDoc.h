@@ -3,7 +3,7 @@
  * (Estonian National Electoral Committee), www.vvk.ee
  * Derived work from libdicidocpp library
  * https://svn.eesti.ee/projektid/idkaart_public/trunk/libdigidocpp/
- * Written in 2011-2013 by Cybernetica AS, www.cyber.ee
+ * Written in 2011-2014 by Cybernetica AS, www.cyber.ee
  *
  * This work is licensed under the Creative Commons
  * Attribution-NonCommercial-NoDerivs 3.0 Unported License.
@@ -24,7 +24,6 @@ namespace bdoc {
 void initialize();
 void terminate();
 
-std::list<std::string> list_policies(const unsigned char *buf, size_t len);
 
 class CertificateData {
 
@@ -84,10 +83,10 @@ class BDocVerifier {
 		const BDocVerifierResult verifyBESOffline(
 					const char* xml, size_t xml_len);
 
-		const BDocVerifierResult verifyBESOnline(
+		const BDocVerifierResult verifyInHTS(
 					const char* xml, size_t xml_len);
 
-			const BDocVerifierResult verifyTMOffline(
+		const BDocVerifierResult verifyTMOffline(
 					const char* xml, size_t xml_len);
 
 	private:

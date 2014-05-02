@@ -4,7 +4,7 @@
 """
 Copyright: Eesti Vabariigi Valimiskomisjon
 (Estonian National Electoral Committee), www.vvk.ee
-Written in 2004-2013 by Cybernetica AS, www.cyber.ee
+Written in 2004-2014 by Cybernetica AS, www.cyber.ee
 
 This work is licensed under the Creative Commons
 Attribution-NonCommercial-NoDerivs 3.0 Unported License.
@@ -25,6 +25,7 @@ import evcommon
 import question
 import time
 
+import bdocconfig
 import bdocpython
 import bdocpythonutils
 
@@ -41,7 +42,7 @@ class ChoicesReplace:
         self.root = None
         self.backup_dir = None
 
-        self.conf = bdocpythonutils.BDocConfig()
+        self.conf = bdocconfig.BDocConfig()
         self.conf.load(Election().get_bdoc_conf())
 
 

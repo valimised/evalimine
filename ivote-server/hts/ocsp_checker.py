@@ -4,7 +4,7 @@
 """
 Copyright: Eesti Vabariigi Valimiskomisjon
 (Estonian National Electoral Committee), www.vvk.ee
-Written in 2004-2013 by Cybernetica AS, www.cyber.ee
+Written in 2004-2014 by Cybernetica AS, www.cyber.ee
 
 This work is licensed under the Creative Commons
 Attribution-NonCommercial-NoDerivs 3.0 Unported License.
@@ -16,7 +16,7 @@ import sys
 import subprocess
 from election import Election
 import time
-import bdocpythonutils
+import bdocconfig
 import evlog
 import evcommon
 import exception_msg
@@ -28,7 +28,7 @@ def check_ocsp():
     log.set_logs(Election().get_path(evcommon.OCSP_LOG_FILE))
 
     try:
-        _conf = bdocpythonutils.BDocConfig()
+        _conf = bdocconfig.BDocConfig()
         _conf.load(Election().get_bdoc_conf())
         _ocsp = _conf.get_ocsp_responders()
 

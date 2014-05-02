@@ -29,11 +29,9 @@
 <schema xmlns="http://www.w3.org/2001/XMLSchema"
         xmlns:ds="http://www.w3.org/2000/09/xmldsig#"
         xmlns:xades="http://uri.etsi.org/01903/v1.3.2#"
-        xmlns:xades111="http://uri.etsi.org/01903/v1.1.1#"
         targetNamespace="http://www.w3.org/2000/09/xmldsig#"
         version="0.1" elementFormDefault="qualified"> 
 
-<import namespace="http://uri.etsi.org/01903/v1.1.1#" schemaLocation="XAdES111.xsd"/>
 <import namespace="http://uri.etsi.org/01903/v1.3.2#" schemaLocation="XAdES.xsd"/>
   
 <!-- Basic Types Defined for Signatures -->
@@ -64,6 +62,13 @@
       </extension>
     </simpleContent>
   </complexType>
+
+<element name="XAdESSignatures" type="ds:XAdESSignaturesType"/>
+<complexType name="XAdESSignaturesType">
+  <sequence>
+    <element ref="ds:Signature" minOccurs="0" maxOccurs="unbounded"/>
+  </sequence>
+</complexType>
 
 <!-- Start SignedInfo -->
 
@@ -251,9 +256,6 @@
     <choice>
   <sequence minOccurs="0" maxOccurs="unbounded">
     <element ref="xades:QualifyingProperties"/>
-  </sequence>
-  <sequence minOccurs="0" maxOccurs="unbounded">
-    <element ref="xades111:QualifyingProperties"/>
   </sequence>
     </choice>
   <attribute name="Id" type="ID" use="optional"/> 

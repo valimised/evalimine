@@ -3,7 +3,7 @@
  * (Estonian National Electoral Committee), www.vvk.ee
  * Derived work from libdicidocpp library
  * https://svn.eesti.ee/projektid/idkaart_public/trunk/libdigidocpp/
- * Written in 2011-2013 by Cybernetica AS, www.cyber.ee
+ * Written in 2011-2014 by Cybernetica AS, www.cyber.ee
  *
  * This work is licensed under the Creative Commons
  * Attribution-NonCommercial-NoDerivs 3.0 Unported License.
@@ -32,21 +32,4 @@ void addXMLRevocationValues(xercesc::DOMDocument *doc,
 				xercesc::DOMNode *root,
 				xml_schema::Base64Binary& resp);
 
-void addXMLDigestMethodAndAlgorithm(xercesc::DOMDocument *doc,
-					xercesc::DOMNode *root,
-					xml_schema::Base64Binary& dig,
-					const std::string& methuri);
-
-void addXMLCompleteCertificateRefs(xercesc::DOMDocument *doc,
-					xercesc::DOMNode *root,
-					bdoc::X509Cert& incert,
-					xml_schema::Base64Binary& dig,
-					const std::string& methuri);
-
-void addXMLCompleteRevocationRefs(xercesc::DOMDocument *doc,
-					xercesc::DOMNode *root,
-					bdoc::X509Cert& cert,
-					xml_schema::Base64Binary& dig,
-					const std::string& methuri,
-					const std::string& producedAt);
 

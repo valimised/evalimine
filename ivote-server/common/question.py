@@ -4,7 +4,7 @@
 """
 Copyright: Eesti Vabariigi Valimiskomisjon
 (Estonian National Electoral Committee), www.vvk.ee
-Written in 2004-2013 by Cybernetica AS, www.cyber.ee
+Written in 2004-2014 by Cybernetica AS, www.cyber.ee
 
 This work is licensed under the Creative Commons
 Attribution-NonCommercial-NoDerivs 3.0 Unported License.
@@ -38,22 +38,14 @@ class Question:
         self._reg.create_string_value(['common'], 'description', descr)
 
     def choices_list(self, ed):
-        if self.get_type() == evcommon.TYPE_EUROPARLAMENT:
-            return inputlists.EPChoicesList(ed)
         return inputlists.ChoicesList(ed)
 
     def choices_proxy(self):
         if self._root == 'hes':
-            if self.get_type() == evcommon.TYPE_EUROPARLAMENT:
-                return inputlists.EPChoicesHES(self._reg)
             return inputlists.ChoicesHES(self._reg)
         elif self._root == 'hts':
-            if self.get_type() == evcommon.TYPE_EUROPARLAMENT:
-                return inputlists.EPChoicesHTS(self._reg)
             return inputlists.ChoicesHTS(self._reg)
         else:
-            if self.get_type() == evcommon.TYPE_EUROPARLAMENT:
-                return inputlists.EPChoicesHLR(self._reg)
             return inputlists.ChoicesHLR(self._reg)
 
     def get_voter(self, ik):
@@ -94,22 +86,10 @@ class Question:
         out_f.write(header)
         out_f.close()
 
-    def _create_log_file(self, lognr):
-        logname = 'log' + lognr
+    def truncate_log_file(self, lognr):
+        logname = 'log%s' % lognr
         self._reg.create_string_value(['common'], logname, "")
         self._reg.truncate_value(['common'], logname)
-        filen = self._reg.path(['common', logname])
-        header = evcommon.VERSION + '\n' + self._elid + '\n' + lognr + '\n'
-        out_f = file(filen, 'w')
-        out_f.write(header)
-        out_f.close()
-
-    def create_log_files(self):
-        self._create_log_file('1')
-        self._create_log_file('2')
-        self._create_log_file('3')
-        self._create_log_file('4')
-        self._create_log_file('5')
 
     def can_vote(self, ik):
         return (self.get_voter(ik) != None)

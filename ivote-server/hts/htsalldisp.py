@@ -4,7 +4,7 @@
 """
 Copyright: Eesti Vabariigi Valimiskomisjon
 (Estonian National Electoral Committee), www.vvk.ee
-Written in 2004-2013 by Cybernetica AS, www.cyber.ee
+Written in 2004-2014 by Cybernetica AS, www.cyber.ee
 
 This work is licensed under the Creative Commons
 Attribution-NonCommercial-NoDerivs 3.0 Unported License.
@@ -20,6 +20,7 @@ import sys
 import evcommon
 import evstrings
 from evmessage import EvMessage
+from evmessage import EV_ERRORS
 import time
 
 
@@ -28,10 +29,9 @@ def __return_message(result, message):
 
 def bad_cgi_input():
     ret = evcommon.EVOTE_ERROR
-    msg = EvMessage().get_str("VIGASED_SISENDPARAMEETRID", \
-        evstrings.VIGASED_SISENDPARAMEETRID)
+    msg = EV_ERRORS.TEHNILINE_VIGA
     AppLog().set_app('HTS-ALL')
-    AppLog().log_error(msg)
+    AppLog().log_error("Vigased sisendparameetrid")
     return __return_message(ret, msg)
 
 
@@ -44,15 +44,14 @@ def consistency(sha_in):
 def check_repeat(sha_in, code_in):
     _htsd = HTSAllDispatcher()
     ret = evcommon.EVOTE_REPEAT_ERROR
-    msg = EvMessage().get_str("TEHNILINE_VIGA_KOOSKOLASTUSE_KONTROLLIL", \
-        evstrings.TEHNILINE_VIGA_KOOSKOLASTUSE_KONTROLLIL)
+    msg = EV_ERRORS.TEHNILINE_VIGA
 
     AppLog().set_person(code_in)
     ret_cons = _htsd.kooskolaline(sha_in)
 
     if ret_cons == evcommon.EVOTE_CONSISTENCY_NO:
         ret = evcommon.EVOTE_REPEAT_NOT_CONSISTENT
-        msg = EvMessage().get_str("HOOLDUS", evstrings.HOOLDUS)
+        msg = EV_ERRORS.HOOLDUS
     elif ret_cons == evcommon.EVOTE_CONSISTENCY_YES:
         ok, ret_rep, msg_rep = _htsd.haaletanud(code_in)
         if ok:
@@ -69,28 +68,23 @@ def store_vote(sha_in, code_in, vote_in):
 
     _htsd = HTSAllDispatcher()
     ret = evcommon.EVOTE_ERROR
-    msg = EvMessage().get_str("TEHNILINE_VIGA_HAALE_TALLETAMISEL", \
-        evstrings.TEHNILINE_VIGA_HAALE_TALLETAMISEL)
+    msg = EV_ERRORS.TEHNILINE_VIGA
 
     ret_cons = _htsd.kooskolaline(sha_in)
     if ret_cons == evcommon.EVOTE_CONSISTENCY_NO:
         ret = evcommon.EVOTE_ERROR
-        msg = EvMessage().get_str("HOOLDUS", evstrings.HOOLDUS)
+        msg = EV_ERRORS.HOOLDUS
     elif ret_cons == evcommon.EVOTE_CONSISTENCY_YES:
         AppLog().set_person(code_in)
         ret, msg = _htsd.talleta_base64(vote_in)
     else:
         ret = evcommon.EVOTE_ERROR
-        msg = EvMessage().get_str("TEHNILINE_VIGA_KOOSKOLASTUSE_KONTROLLIL", \
-            evstrings.TEHNILINE_VIGA_KOOSKOLASTUSE_KONTROLLIL)
+        msg = EV_ERRORS.TEHNILINE_VIGA
     return __return_message(ret, msg)
 
 def verify_vote(vote_id):
     _htsd = HTSAllDispatcher()
-    if vote_id:
-        ret, msg = _htsd.verify(vote_id)
-    else:
-        ret, msg = _htsd.verification_configuration()
+    ret, msg = _htsd.verify(vote_id)
     return __return_message(ret, msg)
 
 class HTSAllDispatcher:
@@ -99,11 +93,11 @@ class HTSAllDispatcher:
         AppLog().set_app('HTS-ALL')
         self.__all = htsall.HTSAll()
 
-    def kooskolaline(self, voters_files_sha1):
+    def kooskolaline(self, voters_files_sha256):
         try:
             try:
                 #AppLog().log('HES ja HTS kooskõlalisuse kontroll: ALGUS')
-                if self.__all.kooskolaline(voters_files_sha1):
+                if self.__all.kooskolaline(voters_files_sha256):
                     return evcommon.EVOTE_CONSISTENCY_YES
                 else:
                     AppLog().log_error('HES ja HTS ei ole kooskõlalised')
@@ -128,10 +122,7 @@ class HTSAllDispatcher:
                 return False, False, msg
             except:
                 AppLog().log_exception()
-                return False, False, \
-                    EvMessage().get_str(\
-                        "TEHNILINE_VIGA_KORDUVHAALETUSE_KONTROLLIL",\
-                        evstrings.TEHNILINE_VIGA_KORDUVHAALETUSE_KONTROLLIL)
+                return False, False, EV_ERRORS.TEHNILINE_VIGA
         finally:
             AppLog().log('Korduvhääletuse kontroll: LõPP')
 
@@ -147,9 +138,7 @@ class HTSAllDispatcher:
                 return evcommon.EVOTE_ERROR, msg
             except:
                 AppLog().log_exception()
-                return evcommon.EVOTE_ERROR, \
-                    EvMessage().get_str("TEHNILINE_VIGA_HAALE_TALLETAMISEL", \
-                    evstrings.TEHNILINE_VIGA_HAALE_TALLETAMISEL)
+                return evcommon.EVOTE_ERROR, EV_ERRORS.TEHNILINE_VIGA
         finally:
             AppLog().log('Hääle talletamine: LõPP')
 
@@ -171,22 +160,6 @@ class HTSAllDispatcher:
         finally:
             AppLog().log('Vaheauditi aruanne (%s): LõPP' % p_time)
 
-    def verification_configuration(self):
-        try:
-            AppLog().log("Load verification configuration: START")
-            if ElectionState().election_on():
-                return evcommon.VERIFY_OK, "BLOB" # TODO msg-seadistus
-
-            ret, msg = ElectionState().election_off_msg()
-            AppLog().log_error(msg)
-            return evcommon.VERIFY_ERROR, msg
-        except:
-            AppLog().log_exception()
-            return evcommon.VERIFY_ERROR, EvMessage().get_str(\
-                    "TECHNICAL_ERROR_LOAD_CONFIGURATION", \
-                    evstrings.TECHNICAL_ERROR_LOAD_CONFIGURATION)
-        finally:
-            AppLog().log("Load verification configuration: END")
 
     def verify(self, vote_id):
         try:

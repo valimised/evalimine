@@ -3,7 +3,7 @@
 """
 Copyright: Eesti Vabariigi Valimiskomisjon
 (Estonian National Electoral Committee), www.vvk.ee
-Written in 2004-2013 by Cybernetica AS, www.cyber.ee
+Written in 2004-2014 by Cybernetica AS, www.cyber.ee
 
 This work is licensed under the Creative Commons
 Attribution-NonCommercial-NoDerivs 3.0 Unported License.
@@ -12,8 +12,7 @@ http://creativecommons.org/licenses/by-nc-nd/3.0/.
 """
 
 import evcommon
-from evmessage import EvMessage
-import evstrings
+from evmessage import EV_ERRORS
 
 def http_response(content):
     print 'Content-Type: text/plain'
@@ -49,22 +48,18 @@ def msg_mobid_poll():
 
 
 def plain_error_technical(code):
-    return code, EvMessage().\
-        get_str("TEHNILINE_VIGA", evstrings.TEHNILINE_VIGA)
+    return code, EV_ERRORS.TEHNILINE_VIGA
 
 
 def plain_error_maintainance():
-    return evcommon.EVOTE_ERROR, EvMessage().\
-        get_str("HOOLDUS", evstrings.HOOLDUS)
+    return evcommon.EVOTE_ERROR, EV_ERRORS.HOOLDUS
 
 
 def plain_error_election_off_before():
-    return evcommon.EVOTE_ERROR, EvMessage().\
-        get_str("HAALETUS_POLE_ALANUD", evstrings.HAALETUS_POLE_ALANUD)
+    return evcommon.EVOTE_ERROR, EV_ERRORS.HAALETUS_POLE_ALANUD
 
 
 def plain_error_election_off_after():
-    return evcommon.EVOTE_ERROR, EvMessage().\
-        get_str("HAALETUS_ON_LOPPENUD", evstrings.HAALETUS_ON_LOPPENUD)
+    return evcommon.EVOTE_ERROR, EV_ERRORS.HAALETUS_ON_LOPPENUD
 
 # vim:set ts=4 sw=4 et fileencoding=utf8:

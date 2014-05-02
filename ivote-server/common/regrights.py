@@ -4,7 +4,7 @@
 """
 Copyright: Eesti Vabariigi Valimiskomisjon
 (Estonian National Electoral Committee), www.vvk.ee
-Written in 2004-2013 by Cybernetica AS, www.cyber.ee
+Written in 2004-2014 by Cybernetica AS, www.cyber.ee
 
 This work is licensed under the Creative Commons
 Attribution-NonCommercial-NoDerivs 3.0 Unported License.
@@ -56,8 +56,8 @@ class VoteLog:
 
         _, sig_content = self.bdoc.signatures.popitem()
 
-        start = '<X509Certificate>'
-        end = '</X509Certificate>'
+        start = '<ds:X509Certificate>'
+        end = '</ds:X509Certificate>'
         cert = sig_content.partition(start)[2].partition(end)[0].strip()
 
         alog, elog = evlogdata.get_cert_data_log(cert, 'signingcert', True)
@@ -84,10 +84,10 @@ def analyze_vote_for_log(bdocdata):
     return vl.alines, vl.elines
 
 
-def analyze_vote(bdocfile, config):
+def analyze_vote(bdocdata, config):
 
     bdoc = bdocpythonutils.BDocContainer()
-    bdoc.load(bdocfile)
+    bdoc.load_bytes(bdocdata)
     profile = bdocpythonutils.ManifestProfile('TM')
     bdoc.validate(profile)
 

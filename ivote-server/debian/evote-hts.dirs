@@ -1,4 +1,5 @@
 etc/evote
+etc/sudoers.d
 usr/bin
 usr/lib/python2.7/dist-packages
 usr/share/lintian/overrides

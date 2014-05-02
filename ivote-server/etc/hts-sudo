@@ -1,0 +1,4 @@
+Defaults timestamp_timeout = 0
+hts ALL = (root) /usr/share/evote/evote_backup_snapshot /var/evote/registry /tmp/burn_buff
+hts ALL = (root) /usr/share/evote/evote_backup_snapshot /var/log/apache2 /tmp/burn_buff
+

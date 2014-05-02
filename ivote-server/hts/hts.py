@@ -4,7 +4,7 @@
 """
 Copyright: Eesti Vabariigi Valimiskomisjon
 (Estonian National Electoral Committee), www.vvk.ee
-Written in 2004-2013 by Cybernetica AS, www.cyber.ee
+Written in 2004-2014 by Cybernetica AS, www.cyber.ee
 
 This work is licensed under the Creative Commons
 Attribution-NonCommercial-NoDerivs 3.0 Unported License.
@@ -12,7 +12,6 @@ To view a copy of this license, visit
 http://creativecommons.org/licenses/by-nc-nd/3.0/.
 """
 
-import bdocpythonutils
 import ksum
 import ticker
 import os
@@ -23,6 +22,36 @@ import fcntl
 import evcommon
 import htsbase
 import evlog
+import formatutil
+import zipfile
+import StringIO
+import time
+from operator import itemgetter
+
+
+def _file2pdf(input_fn, output_fn):
+    import subprocess
+
+    error = False
+    errstr = ''
+    try:
+        retcode = subprocess.call(\
+            ["rst2pdf", "-s", "dejavu", input_fn, "-o", output_fn, "-v"])
+        if retcode != 0:
+            error = True
+    except OSError, ose:
+        error = True
+        errstr += str(ose)
+
+    if error:
+        try:
+            os.unlink(output_fn)
+        except:
+            pass
+
+        raise Exception(retcode, errstr)
+
+
 
 def jaoskonnad_cmp(jsk1, jsk2):
     list1 = jsk1.split('\t')
@@ -73,93 +102,69 @@ class HTS(htsbase.HTSBase):
     def __init__(self, elid):
         htsbase.HTSBase.__init__(self, elid)
 
-    def talleta_haal(self, **args):
-
-        # Hääle tühistamisel on põhjuseks
-        # tühistamise põhjustanud hääle räsi
-        haale_rasi = ksum.votehash(args['vote'])
-        self.__tyhista_korduv_haal(args['signercode'], haale_rasi)
-        user_key = htscommon.get_user_key(args['signercode'])
-        self._reg.ensure_key(user_key)
-        voter = args['valija']
-        vote_file = htscommon.valid_votefile_name(args['timestamp'], voter)
-        user_key.append(vote_file)
-        filename = self._reg.path(user_key)
-
+    def _write_atomic(self, filename, data):
+        tmp_name = filename + '.partial'
         try:
-            _f = file(filename, 'w')
+            _f = open(tmp_name, 'w')
             fcntl.lockf(_f, fcntl.LOCK_EX)
-            _f.write(args['signedvote'])
+            _f.write(data)
             _f.flush()
+            os.fsync(_f.fileno())
             _f.close()
+            os.rename(tmp_name, filename)
         except Exception, (errno, errstr):
             evlog.log_error("Faili '%s' kirjutamine nurjus" % filename)
             raise Exception(errno, errstr)
 
-        self._log1.log_info(
-            tyyp=1,
+    def talleta_haal(self, **args):
+        haale_rasi = ksum.votehash(args['vote'])
+        user_key = htscommon.get_user_key(args['signercode'])
+        self._reg.ensure_key(user_key)
+        voter = args['valija']
+        vote_file = htscommon.valid_votefile_name(args['timestamp'])
+        user_key.append(vote_file)
+        filename = self._reg.path(user_key)
+
+        frm = evlog.EvLogFormat()
+        logline = frm.logstring(
+            tyyp=0,
             haal_rasi=haale_rasi,
+            timestamp=args['timestamp'],
             jaoskond=voter['jaoskond'],
             jaoskond_omavalitsus=voter['jaoskond_omavalitsus'],
             ringkond=voter['ringkond'],
             ringkond_omavalitsus=voter['ringkond_omavalitsus'],
-            isikukood=args['signercode'])
+            isikukood=args['signercode'],
+            nimi=voter['nimi'],
+            reanumber=voter['reanumber'])
 
-    def __tyhista_korduv_haal(self, code, haale_rasi):
+        outdata = StringIO.StringIO()
+        outzip = zipfile.ZipFile(outdata, 'w')
+        outzip.writestr(htscommon.ZIP_BDOCFILE, args['signedvote'])
+        outzip.writestr(htscommon.ZIP_LOGFILE, logline)
+        outzip.close()
+        self._write_atomic(filename, outdata.getvalue())
 
-        user_key = htscommon.get_user_key(code)
-        if not self._reg.check(user_key):
-            return
 
-        flist = self._reg.list_keys(user_key)
-        for elem in flist:
-            if htscommon.VALID_VOTE_PATTERN.match(elem):
-                rev_name = htscommon.change_votefile_name(\
-                    elem, htscommon.BAUTOREVOKED)
-                old_name = self._reg.path(user_key + [elem])
-                new_name = self._reg.path(user_key + [rev_name])
-
-                bdoc = bdocpythonutils.BDocContainer()
-                bdoc.load(old_name)
-                profile = bdocpythonutils.ManifestProfile('TM')
-                bdoc.validate(profile)
-
-                vote = bdoc.documents["%s.evote" % self._elid]
-                voter = htscommon.get_votefile_voter(elem)
-                vote_time = htscommon.get_votefile_time(elem)
-
-                # logimine
-                self._log2.log_info(
-                    tyyp=2,
-                    haal_rasi=ksum.votehash(vote),
-                    jaoskond=voter['jaoskond'],
-                    jaoskond_omavalitsus=voter['jaoskond_omavalitsus'],
-                    ringkond=voter['ringkond'],
-                    ringkond_omavalitsus=voter['ringkond_omavalitsus'],
-                    isikukood=code,
-                    pohjus='korduv e-hääl: ' + haale_rasi)
-                self._revlog.log_info(
-                    tegevus='korduv e-hääl',
-                    isikukood=code,
-                    nimi=voter['nimi'],
-                    timestamp=vote_time,
-                    operaator='',
-                    pohjus=haale_rasi)
-
-                os.rename(old_name, new_name)
-
-    def talletaja(self, ik):
-        vl = None
+    def get_vote_for_result(self, logline, fname):
+        res = None
         try:
-            vl = inputlists.VotersList('hts', self._reg)
-            if not vl.has_voter(ik):
-                return None
-            ret = vl.get_voter(ik)
-            return ret
-        finally:
-            if vl != None:
-                vl.close()
-                vl = None
+            elems = logline.split('\t')
+            code = elems[6]
+            user_key = htscommon.get_user_key(code)
+            fn = self._reg.path(user_key + [fname])
+            bdoc = htsbase.get_vote(fn)
+            if bdoc:
+                haal = bdoc.documents["%s.evote" % self._elid]
+                voter = htscommon.get_logline_voter(logline)
+                b64haal = base64.b64encode(haal).strip()
+                res = [voter['jaoskond_omavalitsus'], voter['jaoskond'], \
+                    voter['ringkond_omavalitsus'], voter['ringkond'], b64haal]
+        except:
+            evlog.log_exception()
+
+        return res
+
 
     def __write_masinloetav(self, jaoskonnad):
 
@@ -172,7 +177,7 @@ class HTS(htsbase.HTSBase):
 
         of = htscommon.LoggedFile(\
             self._reg.path(\
-                ['hts', 'output', evcommon.ELECTORSLIST_FILE]), self)
+                ['hts', 'output', evcommon.ELECTORSLIST_FILE]))
         of.open('w')
         of.write(evcommon.VERSION + "\n")
         of.write(self._elid + "\n")
@@ -200,9 +205,14 @@ class HTS(htsbase.HTSBase):
         #  Maakond -> Vald -> Kov-jsk numbriliselt -> hääletajad ridade kaupa
 
         ret = 0
-        outfile = htscommon.LoggedFile(\
-            self._reg.path(\
-                ['hts', 'output', evcommon.ELECTORSLIST_FILE_TMP]), self)
+
+        tmp_path = self._reg.path(\
+                ['hts', 'output', evcommon.ELECTORSLIST_FILE_TMP])
+
+        pdf_path = self._reg.path(\
+                ['hts', 'output', evcommon.ELECTORSLIST_FILE_PDF])
+
+        outfile = htscommon.LoggedFile(tmp_path)
         outfile.open('w')
 
         # ReStructuredText jalus leheküljenumbritega
@@ -254,7 +264,10 @@ class HTS(htsbase.HTSBase):
                     outfile.write('\n.. raw:: pdf\n\n\tPageBreak\n\n')
 
         outfile.close()
+
+        _file2pdf(tmp_path, pdf_path)
         return ret
+
 
     def __load_jaoskonnad(self, jsk, jsk_rev):
         dist = inputlists.Districts()
@@ -297,39 +310,64 @@ class HTS(htsbase.HTSBase):
             jsk_rev[i] = jsk[mk][vald][i][1]
 
 
+    def get_log_lines(self, root, path):
+        log_lines = []
+        for vote_file in path:
+            if htscommon.VALID_VOTE_PATTERN.match(vote_file):
+                inzip = None
+                lline = None
+                try:
+                    lname = root + '/' + vote_file
+                    inzip = zipfile.ZipFile(lname, 'r')
+                    lline = inzip.read(htscommon.ZIP_LOGFILE)
+                except:
+                    lline = None
+                    evlog.log_error("Viga hääle käitlemisel: " + lname)
+                    evlog.log_exception()
+
+                if inzip:
+                    inzip.close()
+
+                if lline:
+                    log_lines.append((lline, vote_file))
+
+        return log_lines
+
+
     def tyhistusperioodi(self):
 
-        pc_cache = {}
-        vc = htscommon.VoteCounter()
-        self._log1.cache(pc_cache, 'isikukood')
+        vc_valid = 0
+        vc_autor = 0
+
         jaoskonnad = {}
         jaoskonnad_rev = {}
         self.__load_jaoskonnad(jaoskonnad, jaoskonnad_rev)
         tic = ticker.Counter(\
             'Hääli:', '\tArvesse minevaid: %d\tKorduvaid: %d')
         tic.start('Koostan e-hääletanute nimekirja:')
+
         for path in os.walk(self._reg.path(['hts', 'votes'])):
             root = path[0]
-            for vote_file in path[2]:
-                if htscommon.VALID_VOTE_PATTERN.match(vote_file):
-                    code = root.split('/').pop()
-                    if not code in pc_cache:
-                        self._errmsg = \
-                            "Serveri andmestruktuurid ei ole kooskõlalised"
-                        raise Exception(self._errmsg)
+            code = root.split('/').pop()
 
-                    voter = htscommon.get_votefile_voter(vote_file)
-                    voter['isikukood'] = code
-                    jaoskonnad_rev['%s\t%s\t%s\t%s' % (\
-                        voter['jaoskond_omavalitsus'], \
-                        voter['jaoskond'], voter['ringkond_omavalitsus'], \
-                        voter['ringkond'])].append(voter)
-                    vc.inc_valid()
-                elif htscommon.AUTOREVOKED_VOTE_PATTERN.match(vote_file):
-                    vc.inc_autorevoked()
-                else:
-                    vc.inc_unknown()
-                tic.tick(1, vc.valid(), vc.autorevoked())
+            if not formatutil.is_isikukood(code):
+                continue
+
+            log_lines = self.get_log_lines(root, path[2])
+
+            if len(log_lines) > 0:
+                log_lines.sort(key=itemgetter(0))
+                latest = log_lines.pop()
+                vc_autor += len(log_lines)
+                vc_valid += 1
+
+                voter = htscommon.get_logline_voter(latest[0])
+                jaoskonnad_rev['%s\t%s\t%s\t%s' % (\
+                    voter['jaoskond_omavalitsus'], \
+                    voter['jaoskond'], voter['ringkond_omavalitsus'], \
+                    voter['ringkond'])].append(voter)
+
+            tic.tick(1, vc_valid, vc_autor)
 
         tic.finish()
 
@@ -339,101 +377,132 @@ class HTS(htsbase.HTSBase):
             self._errmsg = 'Viga nimekirjade koostamisel'
             raise Exception(self._errmsg)
 
-        return vc.valid() + vc.autorevoked(), vc.autorevoked(), valijaid1
+        return vc_valid + vc_autor, vc_autor, valijaid1
 
-    def __handle_userrevoked(self, root, vote_file):
-
-        code = root.split('/').pop()
-        user_key = htscommon.get_user_key(code)
-
-        fn = self._reg.path(user_key + [vote_file])
-
-        bdoc = bdocpythonutils.BDocContainer()
-        bdoc.load(fn)
-        profile = bdocpythonutils.ManifestProfile('TM')
-        bdoc.validate(profile)
-        haal = bdoc.documents["%s.evote" % self._elid]
-
-        voter = htscommon.get_votefile_voter(vote_file)
-        pohjus = self._reg.read_string_value(user_key, 'reason').value
-        self._log2.log_info(
-            tyyp=2,
-            haal_rasi=ksum.votehash(haal),
-            jaoskond=voter['jaoskond'],
-            jaoskond_omavalitsus=voter['jaoskond_omavalitsus'],
-            ringkond=voter['ringkond'],
-            ringkond_omavalitsus=voter['ringkond_omavalitsus'],
-            isikukood=code,
-            pohjus=pohjus)
-
-    def __handle_valid(self, root, vote_file):
-
-        code = root.split('/').pop()
-        user_key = htscommon.get_user_key(code)
-        fn = self._reg.path(user_key + [vote_file])
-
-        bdoc = bdocpythonutils.BDocContainer()
-        bdoc.load(fn)
-        profile = bdocpythonutils.ManifestProfile('TM')
-        bdoc.validate(profile)
-        haal = bdoc.documents["%s.evote" % self._elid]
-
-        voter = htscommon.get_votefile_voter(vote_file)
-        b64haal = base64.b64encode(haal).strip()
-
-        self._log3.log_info(
-            tyyp=3,
-            haal_rasi=ksum.votehash(haal),
-            jaoskond=voter['jaoskond'],
-            jaoskond_omavalitsus=voter['jaoskond_omavalitsus'],
-            ringkond=voter['ringkond'],
-            ringkond_omavalitsus=voter['ringkond_omavalitsus'],
-            isikukood=code)
-
-        return [voter['jaoskond_omavalitsus'], voter['jaoskond'],
-            voter['ringkond_omavalitsus'], voter['ringkond'], b64haal]
 
     def lugemisperioodi(self):
 
         r_votes = 0
         v_votes = 0
+        a_votes = 0
+        b_votes = 0
 
         self._reg.ensure_no_key(\
             ['hts', 'output', evcommon.ELECTIONS_RESULT_FILE])
 
         vf = htscommon.LoggedFile(\
             self._reg.path(\
-                ['hts', 'output', evcommon.ELECTIONS_RESULT_FILE]), self)
+                ['hts', 'output', evcommon.ELECTIONS_RESULT_FILE]))
         vf.open('a')
         vf.write(evcommon.VERSION + "\n")
         vf.write(self._elid + "\n")
 
+        l1_lines = []
+        l2_lines = []
+        l3_lines = []
+
         tic = ticker.Counter(\
             'Hääli:', '\tKehtivaid: %d\tAvalduse alusel tühistatuid: %d')
         tic.start('Koostan loendamisele minevate häälte nimekirja')
+
+        nowstr = time.strftime("%Y%m%d%H%M%S")
+
         for path in os.walk(self._reg.path(['hts', 'votes'])):
             root = path[0]
-            for vote_file in path[2]:
-                if htscommon.VALID_VOTE_PATTERN.match(vote_file):
-                    v_votes += 1
-                    res = self.__handle_valid(root, vote_file)
-                    vf.write('\t'.join(res) + '\n')
-                elif htscommon.USERREVOKED_VOTE_PATTERN.match(vote_file):
-                    r_votes += 1
-                    self.__handle_userrevoked(root, vote_file)
-                elif htscommon.AUTOREVOKED_VOTE_PATTERN.match(vote_file):
-                    pass
-                elif htscommon.REVOKE_REASON_PATTERN.match(vote_file):
-                    pass
-                else:
-                    pass
+            code = root.split('/').pop()
+
+            if not formatutil.is_isikukood(code):
+                continue
+
+            log_lines = self.get_log_lines(root, path[2])
+
+            if len(log_lines) > 0:
+                log_lines.sort(key=itemgetter(0), reverse=True)
+                new = None
+                for lines in log_lines:
+                    old = lines[0].rsplit('\t', 2)[0]
+                    notime = old.split('\t', 1)[1]
+                    fn = lines[1]
+                    voteforres = self.get_vote_for_result(old, fn)
+                    if voteforres:
+                        l1_lines.append(old)
+                        if new == None:
+                            ur, reason, tim = self.is_user_revoked(code)
+                            if ur:
+                                l2_lines.append("%s\t%s\t%s" % (tim, notime, reason))
+                                r_votes += 1
+                            else:
+                                vf.write('\t'.join(voteforres) + '\n')
+                                v_votes += 1
+                                l3_lines.append("%s\t%s" % (nowstr, notime))
+                        else:
+                            autor = new.split('\t')
+                            l2_lines.append("%s\t%s\tkorduv e-hääl: %s" % \
+                                    (autor[0], notime, autor[1]))
+                            a_votes += 1
+                        new = old
+                    else:
+                        b_votes += 1
 
                 tic.tick(1, v_votes, r_votes)
 
-        tic.finish()
         vf.close()
         ksum.store(vf.name())
-        return v_votes, r_votes
+        tic.finish()
+
+        l1_lines.sort()
+        self.save_log(l1_lines, '1')
+        l2_lines.sort()
+        self.save_log(l2_lines, '2')
+        l3_lines.sort()
+        self.save_log(l3_lines, '3')
+        return v_votes, r_votes, a_votes, b_votes
+
+
+    def load_revoke(self, input_list, operator):
+        good_list = []
+        bad_list = []
+        for el in input_list:
+            code = el[0]
+            if not self.haaletanud(code):
+                bad_list.append(el)
+                evlog.log_error('Isik koodiga %s ei ole hääletanud' % code)
+                continue
+
+            revoked, reason, _ = self.is_user_revoked(code)
+            if revoked:
+                bad_list.append(el)
+                evlog.log_error(\
+                    'Kasutaja isikukoodiga %s hääl on juba tühistatud' % code)
+            else:
+                # vajalik lugemisele minevate häälte nimistu koostamiseks
+                self.revoke_vote(el, operator)
+                good_list.append(el)
+
+        return good_list, bad_list
+
+
+    def load_restore(self, input_list, operator):
+        good_list = []
+        bad_list = []
+        for el in input_list:
+            code = el[0]
+            if not self.haaletanud(code):
+                bad_list.append(el)
+                evlog.log_error('Isik koodiga %s ei ole hääletanud' % code)
+                continue
+
+            revoked, reason, _ = self.is_user_revoked(code)
+            if (not revoked):
+                bad_list.append(el)
+                evlog.log_error(\
+                    'Isik koodiga %s ei ole oma häält tühistanud' % code)
+                continue
+            else:
+                self.restore_vote(el, operator)
+                good_list.append(el)
+
+        return good_list, bad_list
 
 
 if __name__ == '__main__':

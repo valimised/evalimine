@@ -4,7 +4,7 @@
 """
 Copyright: Eesti Vabariigi Valimiskomisjon
 (Estonian National Electoral Committee), www.vvk.ee
-Written in 2004-2013 by Cybernetica AS, www.cyber.ee
+Written in 2004-2014 by Cybernetica AS, www.cyber.ee
 
 This work is licensed under the Creative Commons
 Attribution-NonCommercial-NoDerivs 3.0 Unported License.
@@ -24,6 +24,7 @@ import evcommon
 import ksum
 import question
 
+import bdocconfig
 import bdocpython
 import bdocpythonutils
 
@@ -51,7 +52,7 @@ class ConfCreator:
         self.root = None
         self.voter_f = None
 
-        self.conf = bdocpythonutils.BDocConfig()
+        self.conf = bdocconfig.BDocConfig()
         self.conf.load(Election().get_bdoc_conf())
 
     def __del__(self):

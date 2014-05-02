@@ -4,7 +4,7 @@
 """
 Copyright: Eesti Vabariigi Valimiskomisjon
 (Estonian National Electoral Committee), www.vvk.ee
-Written in 2004-2013 by Cybernetica AS, www.cyber.ee
+Written in 2004-2014 by Cybernetica AS, www.cyber.ee
 
 This work is licensed under the Creative Commons
 Attribution-NonCommercial-NoDerivs 3.0 Unported License.
@@ -20,9 +20,8 @@ import evlog
 import regrights
 import evcommon
 import evmessage
-import evstrings
+import bdocconfig
 import bdocpython
-import bdocpythonutils
 import exception_msg
 import sessionid
 
@@ -37,14 +36,12 @@ class HESResult:
 
     def __init__(self, logit=None):
         self.user_code = evcommon.EVOTE_ERROR
-        self.user_msg = evmessage.EvMessage().\
-            get_str("TEHNILINE_VIGA", evstrings.TEHNILINE_VIGA)
+        self.user_msg = evmessage.EV_ERRORS.TEHNILINE_VIGA
         self.log_msg = logit
 
     def pole_valija(self, ik):
         self.user_code = evcommon.EVOTE_VOTER_ERROR
-        self.user_msg = evmessage.EvMessage().\
-            get_str("POLE_VALIJA", evstrings.POLE_VALIJA)
+        self.user_msg = evmessage.EV_ERRORS.POLE_VALIJA
         self.log_msg = \
             'Isikukood %s ei kuulu ühegi hääletuse valijate nimekirja' % ik
 
@@ -63,7 +60,7 @@ class VoteChecker:
 
         try:
             bdocpython.initialize()
-            conf = bdocpythonutils.BDocConfig()
+            conf = bdocconfig.BDocConfig()
             conf.load(Election().get_bdoc_conf())
 
             alines = []
@@ -90,15 +87,11 @@ class VoteChecker:
             if not res.result:
                 self.error.log_msg = res.error
                 if self.error.user_msg == '':
-                    self.error.user_msg = evmessage.EvMessage().\
-                        get_str("TEHNILINE_VIGA_HAALE_VERIFITSEERIMISEL", \
-                            evstrings.TEHNILINE_VIGA_HAALE_VERIFITSEERIMISEL)
+                    self.error.user_msg = evmessage.EV_ERRORS.TEHNILINE_VIGA
                 self.error.user_code = evcommon.EVOTE_ERROR
 
                 if not res.cert_is_valid:
-                    self.error.user_msg = evmessage.EvMessage().\
-                        get_str("SERTIFIKAAT_ON_AEGUNUD", \
-                            evstrings.SERTIFIKAAT_ON_AEGUNUD)
+                    self.error.user_msg = evmessage.EV_ERRORS.SERTIFIKAAT_ON_AEGUNUD
                     self.error.user_code = evcommon.EVOTE_CERT_ERROR
 
                 return False
@@ -109,17 +102,14 @@ class VoteChecker:
                     'Autentija (%s) ja allkirjastaja (%s) erinevad' % \
                         (self._ik, ik_ver)
                 self.error.user_msg = \
-                    evmessage.EvMessage().get_str("ERINEV_KASUTAJA", \
-                        evstrings.ERINEV_KASUTAJA)
+                    evmessage.EV_ERRORS.TEHNILINE_VIGA
                 self.error.user_code = evcommon.EVOTE_ERROR
                 return False
 
             return True
 
         except:
-            self.error.user_msg = evmessage.EvMessage().\
-                get_str("TEHNILINE_VIGA_HAALE_VERIFITSEERIMISEL", \
-                    evstrings.TEHNILINE_VIGA_HAALE_VERIFITSEERIMISEL)
+            self.error.user_msg = evmessage.EV_ERRORS.TEHNILINE_VIGA
             self.error.user_code = evcommon.EVOTE_ERROR
             self.error.log_msg = exception_msg.trace()
 
@@ -196,10 +186,13 @@ class CandidateListExtractor:
             voter = quest.get_voter(self._ik)
             if voter == None:
                 continue
+            elid = quest.qname()
             self._name_type = \
-                self._name_type + quest.qname() + ':' + \
-                    str(quest.get_type()) + '\t'
+                self._name_type + elid + ':' + str(quest.get_type()) + '\t'
             kandidaadid = quest.choices_to_voter(voter)
+            evlog.log("Ringkond: %s-%s-%s-%s-%s" % \
+                    (elid, voter['jaoskond_omavalitsus'], voter['jaoskond'], \
+                    voter['ringkond_omavalitsus'], voter['ringkond']))
             self._list.append(kandidaadid)
 
     def has_list(self):
@@ -266,8 +259,8 @@ class HES:
         params = {}
         params[evcommon.POST_EVOTE] = vote
         params[evcommon.POST_PERSONAL_CODE] = ik
-        params[evcommon.POST_VOTERS_FILES_SHA1] = \
-            Election().get_voters_files_sha1()
+        params[evcommon.POST_VOTERS_FILES_SHA256] = \
+            Election().get_voters_files_sha256()
         params[evcommon.POST_SESS_ID] = sessionid.voting()
 
         hts_connector = HTSConnector(params)
@@ -283,8 +276,8 @@ class HES:
 
         params = {}
         params[evcommon.POST_PERSONAL_CODE] = ik
-        params[evcommon.POST_VOTERS_FILES_SHA1] = \
-            Election().get_voters_files_sha1()
+        params[evcommon.POST_VOTERS_FILES_SHA256] = \
+            Election().get_voters_files_sha256()
         params[evcommon.POST_SESS_ID] = sessionid.voting()
 
         hts_connector = HTSConnector(params)
@@ -297,9 +290,9 @@ class HES:
         return retcode, ans
 
     def hts_consistency_check(self):
-        sha1 = Election().get_voters_files_sha1()
-        if len(sha1) > 0:
-            params = {evcommon.POST_VOTERS_FILES_SHA1: sha1}
+        sha256 = Election().get_voters_files_sha256()
+        if len(sha256) > 0:
+            params = {evcommon.POST_VOTERS_FILES_SHA256: sha256}
             hts_connector = HTSConnector(params)
             if not hts_connector.work_strict():
                 hts_connector.error.user_code = \
@@ -309,7 +302,7 @@ class HES:
         else:
             error = HESResult()
             error.user_code = evcommon.EVOTE_CONSISTENCY_ERROR
-            error.log_msg = 'POST_VOTERS_FILES_SHA1 parameeter oli (null)'
+            error.log_msg = 'POST_VOTERS_FILES_SHA256 parameeter oli (null)'
             return self.__return_error(error)
 
 

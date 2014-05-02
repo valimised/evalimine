@@ -4,7 +4,7 @@
 """
 Copyright: Eesti Vabariigi Valimiskomisjon
 (Estonian National Electoral Committee), www.vvk.ee
-Written in 2004-2013 by Cybernetica AS, www.cyber.ee
+Written in 2004-2014 by Cybernetica AS, www.cyber.ee
 
 This work is licensed under the Creative Commons
 Attribution-NonCommercial-NoDerivs 3.0 Unported License.
@@ -19,6 +19,7 @@ import base64
 import StringIO
 
 from DigiDocService_client import *
+from DigiDocService_types import ns0 as ddstypes
 
 from election import Election
 from election import ElectionState
@@ -31,50 +32,32 @@ import hesdisp
 
 def get_mid_text(status):
     import evmessage
-    import evstrings
 
     if status == 'MID_NOT_READY':
-        return evmessage.EvMessage(). \
-                 get_str("MID_NOT_READY", evstrings.MID_NOT_READY)
+        return evmessage.EV_ERRORS.MID_NOT_READY
 
     elif status == 'USER_CANCEL':
-        return evmessage.EvMessage(). \
-                 get_str("MID_USER_CANCEL", evstrings.MID_USER_CANCEL)
+        return evmessage.EV_ERRORS.MID_USER_CANCEL
 
     elif status == 'PHONE_ABSENT':
-        return evmessage.EvMessage(). \
-                 get_str("MID_PHONE_ABSENT", evstrings.MID_PHONE_ABSENT)
+        return evmessage.EV_ERRORS.MID_PHONE_ABSENT
 
     elif status == 'SENDING_ERROR':
-        return evmessage.EvMessage(). \
-                 get_str("MID_SENDING_ERROR", evstrings.MID_SENDING_ERROR)
+        return evmessage.EV_ERRORS.MID_SENDING_ERROR
 
     elif status == 'SIM_ERROR':
-        return evmessage.EvMessage(). \
-                 get_str("MID_SIM_ERROR", evstrings.MID_SIM_ERROR)
-
-    elif status == 'INTERNAL_ERROR':
-        return evmessage.EvMessage(). \
-                 get_str("MID_INTERNAL_ERROR", evstrings.MID_INTERNAL_ERROR)
+        return evmessage.EV_ERRORS.MID_SIM_ERROR
 
     elif status == 'MID_ERROR_301':
-        return evmessage.EvMessage(). \
-                 get_str("MID_ERROR_301", evstrings.MID_ERROR_301)
+        return evmessage.EV_ERRORS.MID_ERROR_301
 
     elif status in ['MID_ERROR_302', 'REVOKED', 'SUSPENDED']:
-        return evmessage.EvMessage(). \
-                 get_str("MID_ERROR_302", evstrings.MID_ERROR_302)
+        return evmessage.EV_ERRORS.MID_ERROR_302
 
     elif status in ['MID_ERROR_303', 'NOT_ACTIVATED']:
-        return evmessage.EvMessage(). \
-                 get_str("MID_ERROR_303", evstrings.MID_ERROR_303)
+        return evmessage.EV_ERRORS.MID_ERROR_303
 
-    elif status == 'MID_POLICY':
-        return evmessage.EvMessage(). \
-                 get_str("MID_POLICY", evstrings.MID_POLICY)
-
-    return evmessage.EvMessage(). \
-                 get_str("MID_UNKNOWN_ERROR", evstrings.MID_UNKNOWN_ERROR)
+    return evmessage.EV_ERRORS.MID_UNKNOWN_ERROR
 
 
 
@@ -96,7 +79,7 @@ def mobid_vote_data(b64vote):
         ret = {}
         for el in bdoc.documents:
             evlog.log(evlogdata.get_vote(el, bdoc.documents[el]))
-            ret[el] = base64.b64encode(bdoc.documents[el])
+            ret[el] = bdoc.documents[el]
 
         return ret
 
@@ -104,6 +87,30 @@ def mobid_vote_data(b64vote):
         if bdocfile != None:
             bdocfile.close()
 
+def vote_with_signature(b64data, escaped_signature):
+    import zipfile
+    from xml.sax.saxutils import unescape
+
+    sigfile = "META-INF/signatures0.xml"
+
+    bdocdata = StringIO.StringIO(base64.b64decode(b64data))
+    bdoczip = zipfile.ZipFile(bdocdata)
+
+    # bdoczip already contains META-INF/signature0.xml, which we can't
+    # delete/truncate, so we need to create a new zip and copy everything else
+    # over.
+
+    signedbdocdata = StringIO.StringIO()
+    signedbdoczip = zipfile.ZipFile(signedbdocdata, "w")
+
+    for entry in bdoczip.namelist():
+        if entry != sigfile:
+            signedbdoczip.writestr(entry, bdoczip.read(entry))
+    signedbdoczip.writestr(sigfile, unescape(escaped_signature))
+
+    signedbdoczip.close()
+    bdoczip.close()
+    return base64.b64encode(signedbdocdata.getvalue())
 
 def challenge_ok(b64cert, mychal, ourchal, signature):
 
@@ -131,16 +138,6 @@ def challenge_ok(b64cert, mychal, ourchal, signature):
 
     return True, None
 
-
-def cert_ok(incert):
-    import bdocpythonutils
-    conf = bdocpythonutils.BDocConfig()
-    conf.load(Election().get_bdoc_conf())
-
-    b64cert = incert.replace('-----BEGIN CERTIFICATE-----', '').\
-        replace('-----END CERTIFICATE-----', '')
-
-    return conf.is_good_mid_cert(b64cert)
 
 
 class MobileIDContext:
@@ -284,13 +281,6 @@ class MobileIDService:
     def files(self):
         return len(self.dfs)
 
-    def get_cert(self, ctx):
-        request = GetMobileCertificate(\
-            PhoneNo = ctx.phoneno, \
-            ReturnCertData = 'auth')
-
-        return self.srv.GetMobileCertificate(request)
-
     def init_auth(self, ctx):
         request = MobileAuthenticate(\
                 PhoneNo = ctx.phoneno, \
@@ -305,76 +295,47 @@ class MobileIDService:
     def init_sign(self, ctx):
         import hashlib
 
-        req = StartSession(\
-            SigningProfile = '', SigDocXML = None, bHoldSession = True)
-        rsp = self.srv.StartSession(req)
+        datafiles = ddstypes.DataFileDigestList_Def("DataFiles")
+        datafiles._DataFileDigest = []
+        for el in self.dfs:
+            digest = hashlib.sha256(self.dfs[el]).digest() # pylint: disable=E1101
+
+            datafile = ddstypes.DataFileDigest_Def("DataFileDigest")
+            datafile._Id = el
+            datafile._DigestType = "sha256"
+            datafile._DigestValue = base64.b64encode(digest)
+
+            datafiles._DataFileDigest.append(datafile)
+
+        req = MobileCreateSignature(\
+                SignersCountry = "EE", \
+                PhoneNo = ctx.phoneno, \
+                Language = ctx.lang, \
+                ServiceName = self.name, \
+                MessageToDisplay = self.sign_msg, \
+                DataFiles = datafiles, \
+                Format = "BDOC", \
+                Version = "2.1", \
+                SignatureID = "S0", \
+                MessagingMode = "asynchClientServer")
+        rsp = self.srv.MobileCreateSignature(req)
+
         if rsp._Status != 'OK':
             return False, rsp._Status, None
 
-        req2 = CreateSignedDoc(Sesscode = rsp._Sesscode, Format = 'BDOC', \
-            Version = '1.0')
-        rsp2 = self.srv.CreateSignedDoc(req2)
-        if rsp2._Status != 'OK':
-            return False, rsp2._Status, None
-
-        for el in self.dfs:
-            digest = hashlib.sha256(self.dfs[el]) # pylint: disable=E1101
-            req_i = AddDataFile(Sesscode = rsp._Sesscode, FileName = el, \
-                MimeType = "application/x-encrypted-vote", Size = 256, \
-                DigestType = "sha256", \
-                DigestValue = base64.b64encode(digest.digest()), \
-                ContentType = "HASHCODE")
-            rsp_i = self.srv.AddDataFile(req_i)
-            if rsp_i._Status != 'OK':
-                return False, rsp_i._Status, None
-
-        req_3 = MobileSign(\
-            Sesscode = rsp._Sesscode, \
-            SignerPhoneNo = ctx.phoneno, \
-            Language = ctx.lang, \
-            ServiceName = self.name, SigningProfile = '', \
-            AdditionalDataToBeDisplayed = self.sign_msg, \
-            MessagingMode = 'asynchClientServer')
-        rsp_3 = self.srv.MobileSign(req_3)
-
-        if rsp_3._Status != 'OK':
-            return False, rsp_3._Status, None
-
-        return True, rsp._Sesscode, rsp_3._ChallengeID
-
+        return True, rsp._Sesscode, rsp._ChallengeID
 
     def poll_auth(self, ctx):
         request = GetMobileAuthenticateStatus(\
-            Sesscode = ctx.midsess, WaitSignature = False)
+                Sesscode = ctx.midsess, WaitSignature = False)
         return self.srv.GetMobileAuthenticateStatus(request)
 
     def poll_sign(self, ctx):
+        req = GetMobileCreateSignatureStatus(\
+                Sesscode = ctx.midsess, WaitSignature = False)
+        rsp = self.srv.GetMobileCreateSignatureStatus(req)
 
-        req = GetStatusInfo(Sesscode = ctx.midsess, WaitSignature = False)
-        rsp = self.srv.GetStatusInfo(req)
-
-        if rsp._Status != 'OK':
-            return rsp._Status, None
-
-        if rsp._StatusCode == 'OUTSTANDING_TRANSACTION':
-            return rsp._StatusCode, None
-
-        if rsp._StatusCode != 'SIGNATURE':
-            return rsp._StatusCode, None
-
-        req2 = GetSignedDoc(Sesscode = ctx.midsess)
-        rsp2 = self.srv.GetSignedDoc(req2)
-
-        req3 = CloseSession(Sesscode = ctx.midsess)
-        rsp3 = self.srv.CloseSession(req3)
-
-        if rsp2._Status != 'OK':
-            return rsp2._Status, None
-
-        if rsp3._Status != 'OK':
-            return rsp3._Status, None
-
-        return rsp._StatusCode, rsp2._SignedDocData
+        return rsp._Status, rsp._Signature
 
 
 class MIDDispatcher:
@@ -427,9 +388,6 @@ class MIDDispatcher:
         return self.__return_error(evcommon.EVOTE_MID_ERROR, \
                                             get_mid_text(status))
 
-    def __return_mid_policy_error(self):
-        return self.__return_error(evcommon.EVOTE_MID_POLICY_ERROR, \
-                                            get_mid_text('MID_POLICY'))
 
     def __return_badstatusline_error(self, exc):
         evlog.log_error('Vigane HTTP status-line: "%s"' % exc.line)
@@ -451,7 +409,7 @@ class MIDDispatcher:
                     b64 = form.getvalue(el)
                     votes = mobid_vote_data(b64)
                     for el in votes:
-                        vote = base64.b64decode(votes[el])
+                        vote = votes[el]
                         service.add_file(el, vote)
                         self.ctx().add_votefile(el, vote)
                     self.ctx().set_origvote(b64)
@@ -486,26 +444,17 @@ class MIDDispatcher:
             evlog.log("Autentimispäring: ALGUS %s" % (phone))
             if not ElectionState().election_on():
                 r1, r2 = ElectionState().election_off_msg()
+                evlog.log_error('Viga operatsioonil "cand", teade "%s"' % r2)
                 return protocol.msg_error(r1, r2)
 
             self.ctx().set_phone(phone)
             self.ctx().generate_challenge()
             service = MobileIDService()
 
-            rsp_cert = service.get_cert(self.ctx())
-            if not (rsp_cert._SignCertStatus == 'OK'):
-                return self.__return_mid_error(rsp_cert._SignCertStatus)
-
-            if rsp_cert._AuthCertStatus == 'OK':
-                res, err = cert_ok(rsp_cert._AuthCertData)
-                if not res:
-                    evlog.log_error(err)
-                    return self.__return_mid_policy_error()
-            else:
-                return self.__return_mid_error(rsp_cert._AuthCertStatus)
-
             rsp = service.init_auth(self.ctx())
             if rsp._Status == 'OK':
+                rsp._CertificateData = rsp._CertificateData.strip()
+
                 self.ctx().save_post_auth(rsp)
 
                 alog, elog = evlogdata.get_cert_data_log(
@@ -544,24 +493,14 @@ class MIDDispatcher:
         self.ctx().set_auth_succ()
         return hesd.get_candidate_list()
 
-    def __get_with_votefiles(self, vote):
-        import zipfile
-
-        bdocdata = StringIO.StringIO(base64.b64decode(vote))
-        bdoczip = zipfile.ZipFile(bdocdata, "a")
-        votefiles = self.ctx().get_votefiles()
-        for filename in votefiles:
-            bdoczip.writestr(filename, votefiles[filename])
-        bdoczip.close()
-        return base64.b64encode(bdocdata.getvalue())
-
-    def __hts_vote(self, vote):
-        vote = self.__get_with_votefiles(vote)
+    def __hts_vote(self, signature):
+        origvote = self.ctx().get_origvote()
         self.__export_certificate()
-        hesd = hesdisp.HESVoterDispatcher()
-        hv = self.ctx().get_origvote()
         self.ctx().kill()
-        return hesd.hts_vote(vote, hv)
+
+        vote = vote_with_signature(origvote, signature)
+        hesd = hesdisp.HESVoterDispatcher()
+        return hesd.hts_vote(vote, origvote)
 
     def __poll_auth(self):
         service = MobileIDService()

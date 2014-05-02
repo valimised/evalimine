@@ -3,7 +3,7 @@
  * (Estonian National Electoral Committee), www.vvk.ee
  * Derived work from libdicidocpp library
  * https://svn.eesti.ee/projektid/idkaart_public/trunk/libdigidocpp/
- * Written in 2011-2013 by Cybernetica AS, www.cyber.ee
+ * Written in 2011-2014 by Cybernetica AS, www.cyber.ee
  *
  * This work is licensed under the Creative Commons
  * Attribution-NonCommercial-NoDerivs 3.0 Unported License.
@@ -126,7 +126,8 @@ class ContainerInfo {
 	HandleMap _hm;
 	DataMap _dm;
 
-	std::list<std::string> errors;
+	typedef std::list<std::string> errors_t;
+	errors_t errors;
 
 };
 

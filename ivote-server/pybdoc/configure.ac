@@ -1,6 +1,6 @@
 AC_PREREQ([2.69])
 AC_INIT([bdoclib], [1.0], [sven@cyber.ee])
-AM_INIT_AUTOMAKE([-Wall -Werror foreign])
+AM_INIT_AUTOMAKE([-Wall foreign])
 LT_INIT
 AC_CONFIG_MACRO_DIR([m4])
 AC_DISABLE_STATIC

@@ -4,7 +4,7 @@
 """
 Copyright: Eesti Vabariigi Valimiskomisjon
 (Estonian National Electoral Committee), www.vvk.ee
-Written in 2004-2013 by Cybernetica AS, www.cyber.ee
+Written in 2004-2014 by Cybernetica AS, www.cyber.ee
 
 This work is licensed under the Creative Commons
 Attribution-NonCommercial-NoDerivs 3.0 Unported License.
@@ -46,16 +46,17 @@ REASONS = {
 VALIDATORS = {
     evcommon.POST_EVOTE : formatutil.is_vote,
     evcommon.POST_PERSONAL_CODE: formatutil.is_isikukood,
-    evcommon.POST_VOTERS_FILES_SHA1: formatutil.is_voters_file_sha1,
+    evcommon.POST_VOTERS_FILES_SHA256: formatutil.is_voters_file_sha256,
     evcommon.POST_SESS_ID: formatutil.is_session_id,
     evcommon.POST_PHONENO: formatutil.is_mobid_phoneno,
     evcommon.POST_MID_POLL: formatutil.is_mobid_poll
 }
 
 def is_bdoc_mimetype_file(zi):
+    size = len("application/vnd.etsi.asic-e+zip")
     fn = (zi.filename == 'mimetype')
-    fs = (zi.file_size == 24)
-    cs = (zi.compress_size == 24)
+    fs = (zi.file_size == size)
+    cs = (zi.compress_size == size)
     return (fn and fs and cs)
 
 
@@ -80,9 +81,9 @@ def is_encrypted_vote(zi):
 
 
 def is_bdoc_signature_file(zi):
-    fn = (zi.filename == 'META-INF/signature0.xml')
-    fs = (zi.file_size < 5120)
-    cs = (zi.compress_size < 5120)
+    fn = (zi.filename == 'META-INF/signatures0.xml')
+    fs = (zi.file_size < 5500)
+    cs = (zi.compress_size < 5500)
     return (fn and fs and cs)
 
 
@@ -90,7 +91,7 @@ ZIPFILE_VALIDATORS = {
     'mimetype' : is_bdoc_mimetype_file,
     'META-INF/' : is_bdoc_metainf_dir,
     'META-INF/manifest.xml' : is_bdoc_manifest_file,
-    'META-INF/signature0.xml' : is_bdoc_signature_file
+    'META-INF/signatures0.xml' : is_bdoc_signature_file
 }
 
 
@@ -126,42 +127,68 @@ def get_invalid_keys(form, required):
 
 
 HDR_1 = \
-"""<Signature Id="S0" xmlns="http://www.w3.org/2000/09/xmldsig#">
-<SignedInfo xmlns="http://www.w3.org/2000/09/xmldsig#">
-<CanonicalizationMethod Algorithm="http://www.w3.org/TR/2001/REC-xml-c14n-20010315">
-</CanonicalizationMethod>
-<SignatureMethod Algorithm="http://www.w3.org/2001/04/xmldsig-more#rsa-sha224">
-</SignatureMethod>
+"""<asic:XAdESSignatures xmlns:asic="http://uri.etsi.org/02918/v1.2.1#" xmlns:ds="http://www.w3.org/2000/09/xmldsig#" xmlns:xades="http://uri.etsi.org/01903/v1.3.2#">
+<ds:Signature Id="S0">
+<ds:SignedInfo xmlns:asic="http://uri.etsi.org/02918/v1.2.1#" xmlns:ds="http://www.w3.org/2000/09/xmldsig#" xmlns:xades="http://uri.etsi.org/01903/v1.3.2#" Id="S0-SignedInfo">
+<ds:CanonicalizationMethod Algorithm="http://www.w3.org/2006/12/xml-c14n11">
+</ds:CanonicalizationMethod>
+<ds:SignatureMethod Algorithm="http://www.w3.org/2001/04/xmldsig-more#rsa-sha224">
+</ds:SignatureMethod>
 """
 
 HDR_2 = \
-"""</X509Data></KeyInfo>
-<Object><QualifyingProperties xmlns="http://uri.etsi.org/01903/v1.3.2#" Target="#S0">
-<SignedProperties xmlns="http://uri.etsi.org/01903/v1.3.2#" Id="S0-SignedProperties">
-<SignedSignatureProperties>
+"""</ds:X509Data></ds:KeyInfo>
+<ds:Object Id="S0-object-xades"><xades:QualifyingProperties Id="S0-QualifyingProperties" Target="#S0"><xades:SignedProperties xmlns:asic="http://uri.etsi.org/02918/v1.2.1#" xmlns:ds="http://www.w3.org/2000/09/xmldsig#" xmlns:xades="http://uri.etsi.org/01903/v1.3.2#" Id="S0-SignedProperties">
+<xades:SignedSignatureProperties Id="S0-SignedSignatureProperties">
 """
 
 HDR_3 = \
-"""<SigningCertificate>
-<Cert>
-<CertDigest>
-<DigestMethod xmlns="http://www.w3.org/2000/09/xmldsig#" Algorithm="http://www.w3.org/2001/04/xmldsig-more#sha224">
-</DigestMethod>
+"""<xades:SigningCertificate>
+<xades:Cert>
+<xades:CertDigest>
+<ds:DigestMethod Algorithm="http://www.w3.org/2001/04/xmldsig-more#sha224">
+</ds:DigestMethod>
 """
 
 HDR_4 = \
-"""</IssuerSerial></Cert></SigningCertificate></SignedSignatureProperties>
-<SignedDataObjectProperties>
-</SignedDataObjectProperties>
-</SignedProperties><UnsignedProperties xmlns="http://uri.etsi.org/01903/v1.3.2#">
-</UnsignedProperties></QualifyingProperties></Object>
-</Signature>
+"""</xades:IssuerSerial>
+</xades:Cert>
+</xades:SigningCertificate>
+<xades:SignaturePolicyIdentifier>
+<xades:SignaturePolicyId>
+<xades:SigPolicyId>
+<xades:Identifier Qualifier="OIDAsURN">
+urn:oid:1.3.6.1.4.1.10015.1000.3.2.1</xades:Identifier>
+</xades:SigPolicyId>
+<xades:SigPolicyHash>
+<ds:DigestMethod Algorithm="http://www.w3.org/2001/04/xmlenc#sha256">
+</ds:DigestMethod>
+<ds:DigestValue>3Tl1oILSvOAWomdI9VeWV6IA/32eSXRUri9kPEz1IVs=</ds:DigestValue>
+</xades:SigPolicyHash>
+<xades:SigPolicyQualifiers>
+<xades:SigPolicyQualifier>
+<xades:SPURI>
+https://www.sk.ee/repository/bdoc-spec21.pdf</xades:SPURI>
+</xades:SigPolicyQualifier>
+</xades:SigPolicyQualifiers>
+</xades:SignaturePolicyId>
+</xades:SignaturePolicyIdentifier>
+</xades:SignedSignatureProperties>
+<xades:SignedDataObjectProperties>
 """
 
 HDR_5 = \
 """
-<DigestMethod Algorithm="http://www.w3.org/2001/04/xmldsig-more#sha224">
-</DigestMethod>
+<ds:DigestMethod Algorithm="http://www.w3.org/2001/04/xmldsig-more#sha224">
+</ds:DigestMethod>
+"""
+
+HDR_6 = \
+"""</xades:SignedDataObjectProperties>
+</xades:SignedProperties>
+<xades:UnsignedProperties></xades:UnsignedProperties></xades:QualifyingProperties></ds:Object>
+</ds:Signature>
+</asic:XAdESSignatures>
 """
 
 
@@ -186,16 +213,39 @@ def check_tag(inp, tag_start, tag_end, is_good):
     return -1
 
 
+def check_dataobjects(inp, questions):
+    start = 0
+    lines = []
+    ii = 0
+    for el in questions:
+        lines.append(\
+                "<xades:DataObjectFormat ObjectReference=\"#S0-ref-%d\">\n" % ii)
+        lines.append(\
+                "<xades:MimeType>application/octet-stream</xades:MimeType>\n")
+        lines.append("</xades:DataObjectFormat>\n")
+        ii += 1
+
+    for line in lines:
+        ret = check_prefix(inp[start:], line)
+        if ret == -1:
+            return -1
+        start = start + ret
+
+    return start
+
+
 def check_references(inp, questions):
     start = 0
     ref_count = 0
-    common_start = "<Reference"
-    tag_end = "</Reference>\n"
+    common_start = "<ds:Reference"
+    tag_end = "</ds:Reference>\n"
     taglist = []
     taglist.append(\
-            "<Reference Type=\"http://uri.etsi.org/01903#SignedProperties\" URI=\"#S0-SignedProperties\">")
+            "<ds:Reference Id=\"S0-ref-sp\" Type=\"http://uri.etsi.org/01903#SignedProperties\" URI=\"#S0-SignedProperties\">")
+    ii = 0
     for el in questions:
-        taglist.append("<Reference URI=\"/%s.evote\">" % el)
+        taglist.append("<ds:Reference Id=\"S0-ref-%d\" URI=\"/%s.evote\">" % (ii, el))
+        ii += 1
 
     while inp[start:].startswith(common_start):
         for tag_start in taglist:
@@ -212,8 +262,8 @@ def check_references(inp, questions):
             return -1
         start = start + ret
 
-        ret = check_tag(inp[start:], "<DigestValue>", \
-                "</DigestValue>\n</Reference>\n", formatutil.is_base64)
+        ret = check_tag(inp[start:], "<ds:DigestValue>", \
+                "</ds:DigestValue>\n</ds:Reference>\n", formatutil.is_base64)
         if ret == -1:
             return -1
         start = start + ret
@@ -225,27 +275,21 @@ def check_references(inp, questions):
 
     return start
 
-
 def is_well_formed_id_signature(sigdata, questions):
 
-    tag_s_sigval = "</SignedInfo><SignatureValue Id=\"S0-SIG\">"
-    tag_e_sigval = "</SignatureValue>\n"
-    tag_s_mod = "<KeyInfo>\n<KeyValue>\n<RSAKeyValue>\n<Modulus>"
-    tag_e_mod = "</Modulus>\n"
-    tag_s_expo = "<Exponent>"
-    tag_e_expo = "</Exponent>\n"
-    tag_s_x509 = "</RSAKeyValue>\n</KeyValue>\n<X509Data><X509Certificate>"
-    tag_e_x509 = "</X509Certificate>"
-    tag_s_stime = "<SigningTime>"
-    tag_e_stime = "</SigningTime>\n"
-    tag_s_digval = "<DigestValue xmlns=\"http://www.w3.org/2000/09/xmldsig#\">"
-    tag_e_digval = "</DigestValue>\n"
-    tag_s_issuer = "</CertDigest>\n<IssuerSerial>\n" + \
-        "<X509IssuerName xmlns=\"http://www.w3.org/2000/09/xmldsig#\">"
-    tag_e_issuer = "</X509IssuerName>\n"
-    tag_s_serial = \
-            "<X509SerialNumber xmlns=\"http://www.w3.org/2000/09/xmldsig#\">"
-    tag_e_serial = "</X509SerialNumber>\n"
+    tag_s_sigval = "</ds:SignedInfo><ds:SignatureValue Id=\"S0-SIG\">\n"
+    tag_e_sigval = "</ds:SignatureValue>\n<ds:KeyInfo Id=\"S0-KeyInfo\">\n"
+    tag_s_x509 = "<ds:X509Data><ds:X509Certificate>"
+    tag_e_x509 = "</ds:X509Certificate>"
+    tag_s_stime = "<xades:SigningTime>"
+    tag_e_stime = "</xades:SigningTime>\n"
+    tag_s_digval = "<ds:DigestValue>"
+    tag_e_digval = "</ds:DigestValue>\n"
+    tag_s_issuer = "</xades:CertDigest>\n<xades:IssuerSerial>\n" + \
+            "<ds:X509IssuerName>"
+    tag_e_issuer = "</ds:X509IssuerName>\n"
+    tag_s_serial = "<ds:X509SerialNumber>"
+    tag_e_serial = "</ds:X509SerialNumber>\n"
 
     item1 = {
             'validator' : check_prefix,
@@ -270,34 +314,18 @@ def is_well_formed_id_signature(sigdata, questions):
     item4 = {
             'validator' : check_tag,
             'arguments' : {
-                'tag_start' : tag_s_mod,
-                'tag_end' : tag_e_mod,
-                'is_good' : formatutil.is_base64_lines
-                }
-            }
-    item5 = {
-            'validator' : check_tag,
-            'arguments' : {
-                'tag_start' : tag_s_expo,
-                'tag_end' : tag_e_expo,
-                'is_good' : formatutil.is_base64
-                }
-            }
-    item6 = {
-            'validator' : check_tag,
-            'arguments' : {
                 'tag_start' : tag_s_x509,
                 'tag_end' : tag_e_x509,
                 'is_good' : formatutil.is_base64_lines
                 }
             }
-    item7 = {
+    item5 = {
             'validator' : check_prefix,
             'arguments' : {
                 'prefix' : HDR_2
                 }
             }
-    item8 = {
+    item6 = {
             'validator' : check_tag,
             'arguments' : {
                 'tag_start' : tag_s_stime,
@@ -305,13 +333,13 @@ def is_well_formed_id_signature(sigdata, questions):
                 'is_good' : formatutil.is_signing_time
                 }
             }
-    item9 = {
+    item7 = {
             'validator' : check_prefix,
             'arguments' : {
                 'prefix' : HDR_3
                 }
             }
-    item10 = {
+    item8 = {
             'validator' : check_tag,
             'arguments' : {
                 'tag_start' : tag_s_digval,
@@ -319,7 +347,7 @@ def is_well_formed_id_signature(sigdata, questions):
                 'is_good' : formatutil.is_base64
                 }
             }
-    item11 = {
+    item9 = {
             'validator' : check_tag,
             'arguments' : {
                 'tag_start' : tag_s_issuer,
@@ -327,7 +355,7 @@ def is_well_formed_id_signature(sigdata, questions):
                 'is_good' : formatutil.is_100utf8
                 }
             }
-    item12 = {
+    item10 = {
             'validator' : check_tag,
             'arguments' : {
                 'tag_start' : tag_s_serial,
@@ -335,12 +363,27 @@ def is_well_formed_id_signature(sigdata, questions):
                 'is_good' : formatutil.is_number100
                 }
             }
-    item13 = {
+    item11 = {
             'validator' : check_prefix,
             'arguments' : {
                 'prefix' : HDR_4
                 }
             }
+
+    item12 = {
+            'validator' : check_dataobjects,
+            'arguments' : {
+                'questions' : questions
+                }
+            }
+
+    item13 = {
+            'validator' : check_prefix,
+            'arguments' : {
+                'prefix' : HDR_6
+                }
+            }
+
 
     stream = []
     stream.append(item1)
@@ -402,7 +445,7 @@ def is_well_formed_vote_file(votefile, questions):
     if (len(ziplist) > ((len(ZIPFILE_VALIDATORS) + len(question_validators)))):
         return False, ('vote', REASON_TOO_MANY_ELEMENTS)
 
-    has_enc_vote = False
+    real_questions = []
     for el in ziplist:
         if ZIPFILE_VALIDATORS.has_key(el.filename):
             if not ZIPFILE_VALIDATORS[el.filename](el):
@@ -417,19 +460,19 @@ def is_well_formed_vote_file(votefile, questions):
         if question_validators.has_key(el.filename):
             if not question_validators[el.filename](el):
                 return False, (el.filename, REASON_NOT_VALID)
-            has_enc_vote = True
+            real_questions.append(el.filename.split('.')[0])
             continue
 
         return False, (el.filename, REASON_UNKNOWN)
 
-    if not has_enc_vote:
+    if len(real_questions) == 0:
         return False, ('vote', REASON_NO_BALLOT)
 
     if zipf.testzip() != None:
         return False, ('vote', REASON_NOT_ZIP)
 
     res, extra = is_well_formed_signature(\
-            zipf.open('META-INF/signature0.xml'), questions)
+            zipf.open('META-INF/signatures0.xml'), real_questions)
 
     if not res:
         return False, ('vote', REASON_BAD_SIGNATURE, extra)
@@ -520,4 +563,9 @@ def validate_sessionid(form):
         return False
 
     return True
+
+
+if __name__ == '__main__':
+    pass
+#    print is_well_formed_vote_file(open('debug_vote.bdoc'), ['RH2018', 'EP2018'])
 

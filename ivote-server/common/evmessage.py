@@ -4,7 +4,7 @@
 """
 Copyright: Eesti Vabariigi Valimiskomisjon
 (Estonian National Electoral Committee), www.vvk.ee
-Written in 2004-2013 by Cybernetica AS, www.cyber.ee
+Written in 2004-2014 by Cybernetica AS, www.cyber.ee
 
 This work is licensed under the Creative Commons
 Attribution-NonCommercial-NoDerivs 3.0 Unported License.
@@ -22,6 +22,13 @@ import singleton
 
 MSG_FILE = ['common', 'teated']
 
+# Selle klassi ainus mõte on, et EV_ERRORS. abil saab lähtekoodis markeerida
+# veakoode - siis on vajadusel mugav greppida neid.
+class EvErrors:
+    def __getattr__(self, attr):
+        return attr
+
+EV_ERRORS = EvErrors()
 
 class EvMessage:
     """Message strings handling class, Singleton pattern

@@ -4,7 +4,7 @@
 """
 Copyright: Eesti Vabariigi Valimiskomisjon
 (Estonian National Electoral Committee), www.vvk.ee
-Written in 2004-2013 by Cybernetica AS, www.cyber.ee
+Written in 2004-2014 by Cybernetica AS, www.cyber.ee
 
 This work is licensed under the Creative Commons
 Attribution-NonCommercial-NoDerivs 3.0 Unported License.
@@ -14,26 +14,22 @@ http://creativecommons.org/licenses/by-nc-nd/3.0/.
 
 import sys
 import exception_msg
-from election import ElectionState
-from election import Election
 import election
 import htsdisp
 
 
 def execute():
-    _state = ElectionState().get()
+    _state = election.ElectionState().get()
     if _state == election.ETAPP_TYHISTUS:
-        qlist = Election().get_questions()
+        qlist = election.Election().get_questions()
         for el in qlist:
-            _hts = htsdisp.HTSDispatcher(el)
             print el
-            _hts.yleminek_tyhistusperioodi('\t')
+            htsdisp.start_revocation(el)
     elif _state == election.ETAPP_LUGEMINE:
-        qlist = Election().get_questions()
+        qlist = election.Election().get_questions()
         for el in qlist:
-            _hts = htsdisp.HTSDispatcher(el)
             print el
-            _hts.loendamisele_minevad_haaled('\t')
+            htsdisp.start_tabulation(el)
     else:
         pass
 

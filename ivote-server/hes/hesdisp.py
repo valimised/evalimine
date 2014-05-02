@@ -4,7 +4,7 @@
 """
 Copyright: Eesti Vabariigi Valimiskomisjon
 (Estonian National Electoral Committee), www.vvk.ee
-Written in 2004-2013 by Cybernetica AS, www.cyber.ee
+Written in 2004-2014 by Cybernetica AS, www.cyber.ee
 
 This work is licensed under the Creative Commons
 Attribution-NonCommercial-NoDerivs 3.0 Unported License.
@@ -36,7 +36,6 @@ from election import ElectionState
 import evlog
 import evcommon
 import evmessage
-import evstrings
 import protocol
 import hes
 import subprocess
@@ -150,16 +149,13 @@ class CertAnalyzer:
         if not valid:
             self.logmsg = msg
             self.errcode = evcommon.EVOTE_CERT_ERROR
-            self.errmsg = evmessage.EvMessage().\
-                get_str("SERTIFIKAAT_POLE_SELLE_CA_POOLT_VALJA_ANTUD", \
-                    evstrings.SERTIFIKAAT_POLE_SELLE_CA_POOLT_VALJA_ANTUD)
+            self.errmsg = evmessage.EV_ERRORS.EBASOBIV_SERTIFIKAAT
             return False
 
         self._ik, self._en, self._pn = cert_info()
         if not birthday.is_18(self._ik):
             self.errcode = evcommon.EVOTE_ERROR
-            self.errmsg = evmessage.EvMessage().\
-                get_str("POLE_18", evstrings.POLE_18)
+            self.errmsg = evmessage.EV_ERRORS.POLE_18
             self.logmsg = self.errmsg
             return False
 

@@ -3,7 +3,7 @@
 """
 Copyright: Eesti Vabariigi Valimiskomisjon
 (Estonian National Electoral Committee), www.vvk.ee
-Written in 2004-2013 by Cybernetica AS, www.cyber.ee
+Written in 2004-2014 by Cybernetica AS, www.cyber.ee
 
 This work is licensed under the Creative Commons
 Attribution-NonCommercial-NoDerivs 3.0 Unported License.
@@ -25,8 +25,6 @@ import glob
 import sys
 import tty
 
-import evcommon
-
 NOT_DEFINED_STR = "pole määratud"
 
 PRINT_PROGRAM = "lpr"
@@ -38,21 +36,8 @@ TMPFILE_PREFIX = "evotetmp"
 
 
 def print_file_list(file_list):
-    new_list = []
-    for i in file_list:
-        path_list = os.path.split(i)
-        if path_list[1] == evcommon.ELECTORSLIST_FILE:
-            try:
-                _file2pdf(os.path.join(path_list[0], \
-                        evcommon.ELECTORSLIST_FILE_TMP), i + ".pdf")
-                new_list.append(i + ".pdf")
-            except Exception, ex:
-                print 'Faili "%s" ei õnnestu printida: %s' % \
-                    (evcommon.ELECTORSLIST_FILE, str(ex))
-        else:
-            new_list.append(i)
-    if len(new_list) > 0:
-        cmd = "%s %s" % (PRINT_PROGRAM, " ".join(new_list))
+    if len(file_list) > 0:
+        cmd = "%s %s" % (PRINT_PROGRAM, " ".join(file_list))
         os.system(cmd)
     return
 
@@ -160,8 +145,8 @@ def ask_file_name_from_cd(prefix, default=None):
         print "Palun oota. Laen faili.."
         try:
             shutil.copyfile(file_path, tmp_file)
-            if check_file(file_path + ".sha1"):
-                shutil.copyfile(file_path + ".sha1", tmp_file + ".sha1")
+            if check_file(file_path + ".sha256"):
+                shutil.copyfile(file_path + ".sha256", tmp_file + ".sha256")
             break
         except Exception, what:
             print "Viga! Faili ei õnnestu laadida: %s." % str(what)
@@ -218,6 +203,20 @@ def ask_int(prefix, default, minval=None, maxval=None):
             continue
         return retval
 
+def ask_time(prefix, format="%d.%m.%Y %H:%M", default=None):
+    while 1:
+        if default == None:
+            tstr = raw_input("%s: " % prefix)
+        else:
+            tstr = raw_input("%s [%s]: " % (prefix, time.strftime(format, default)))
+        tstr = tstr.strip()
+        if len(tstr) == 0 and default:
+            return default
+        try:
+            return time.strptime(tstr, format)
+        except ValueError as e:
+            print "Palun sisesta kuupäev ja kellaaeg kujul %s" % format
+            continue
 
 def ask_string(prefix, pattern=None, err_text=None,
         default=None):
@@ -508,30 +507,6 @@ def _term_size():
         "hhhh", fcntl.ioctl(0, termios.TIOCGWINSZ, "\000" * 8))[0:2]
     return _h, _w
 
-
-def _file2pdf(input_fn, output_fn):
-    # PDF-iks teisendamine
-    import subprocess
-
-    error = False
-    errstr = 'Tõrge faili "%s" teisendamisel PDF failiks: ' % input_fn
-
-    try:
-        retcode = subprocess.call(\
-            ["rst2pdf", "-s", "dejavu", input_fn, "-o", output_fn])
-        if retcode != 0:
-            error = True
-    except OSError, ose:
-        error = True
-        errstr += str(ose)
-
-    if error:
-        try:
-            os.unlink(output_fn)
-        except:
-            pass
-
-        raise Exception(retcode, errstr)
 
 
 # vim:set ts=4 sw=4 et fileencoding=utf8:

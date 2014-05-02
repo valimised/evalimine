@@ -3,7 +3,7 @@
  * (Estonian National Electoral Committee), www.vvk.ee
  * Derived work from libdicidocpp library
  * https://svn.eesti.ee/projektid/idkaart_public/trunk/libdigidocpp/
- * Written in 2011-2013 by Cybernetica AS, www.cyber.ee
+ * Written in 2011-2014 by Cybernetica AS, www.cyber.ee
  *
  * This work is licensed under the Creative Commons
  * Attribution-NonCommercial-NoDerivs 3.0 Unported License.
@@ -12,6 +12,7 @@
  * */
 
 #include "DateTime.h"
+#include "StackException.h"
 
 #include <sstream>
 #include <iomanip>
@@ -32,20 +33,22 @@ namespace bdoc
 
 				stream << std::setfill('0') << std::dec
 					<< std::setw(4) << time.year()
-					<< "-"
 					<< std::setw(2) << time.month()
-					<< "-"
 					<< std::setw(2) << time.day()
-					<< "T"
 					<< std::setw(2) << time.hours()
-					<< ":"
 					<< std::setw(2) << time.minutes()
-					<< ":"
 					<< std::setw(2) << time.seconds()
-					<< "Z"
 					;
 
 				return stream.str();
+			}
+
+			void string2tm(const std::string& time, struct tm& tm)
+			{
+				char *res = strptime(time.c_str(), "%Y%m%d%H%M%S", &tm);
+				if (res == NULL || *res != '\0') {
+					THROW_STACK_EXCEPTION("Failed to parse time string %s", time.c_str());
+				}
 			}
 
 			xml_schema::DateTime currentTime()

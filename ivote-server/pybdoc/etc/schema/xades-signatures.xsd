@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!DOCTYPE schema
+  PUBLIC "-//W3C//DTD XMLSchema 200102//EN" "XMLSchema.dtd"
+ [
+   <!ATTLIST schema 
+     xmlns:ds CDATA #FIXED "http://www.w3.org/2000/09/xmldsig#">
+   <!ENTITY dsig 'http://www.w3.org/2000/09/xmldsig#'>
+   <!ENTITY % p ''>
+   <!ENTITY % s ''>
+  ]>
+
+<schema xmlns="http://www.w3.org/2001/XMLSchema"
+	xmlns:asic="http://uri.etsi.org/02918/v1.2.1#"
+        xmlns:ds="http://www.w3.org/2000/09/xmldsig#"
+        targetNamespace="http://uri.etsi.org/02918/v1.2.1#"
+        version="0.1" elementFormDefault="qualified"> 
+
+	<import namespace="http://www.w3.org/2000/09/xmldsig#"
+		schemaLocation="xmldsig-core-schema.xsd"/>
+
+	<element name="XAdESSignatures" type="asic:XAdESSignaturesType"/>
+	<complexType name="XAdESSignaturesType">
+	  <sequence>
+	    <element ref="ds:Signature" minOccurs="0" maxOccurs="unbounded"/>
+	  </sequence>
+	</complexType>
+</schema>

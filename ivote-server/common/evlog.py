@@ -4,7 +4,7 @@
 """
 Copyright: Eesti Vabariigi Valimiskomisjon
 (Estonian National Electoral Committee), www.vvk.ee
-Written in 2004-2013 by Cybernetica AS, www.cyber.ee
+Written in 2004-2014 by Cybernetica AS, www.cyber.ee
 
 This work is licensed under the Creative Commons
 Attribution-NonCommercial-NoDerivs 3.0 Unported License.
@@ -46,21 +46,17 @@ class RevLogFormat:
 
     def message(self, args):
 
-        oldtime = time.strptime(
-                    args['timestamp'],
-                    "%Y-%m-%dT%H:%M:%SZ")
-
         newtime = time.localtime()
         if contains(args, 'testtime'):
             newtime = time.strptime(
                     args['testtime'],
-                    "%Y-%m-%dT%H:%M:%SZ")
+                    "%Y%m%d%H%M%S")
 
         line = []
         line.append(args['tegevus'])
         line.append(args['isikukood'])
         line.append(args['nimi'])
-        line.append(time.strftime("%Y%m%d%H%M%S", oldtime))
+        line.append(args['timestamp'])
         line.append(time.strftime("%Y%m%d%H%M%S", newtime))
         line.append(args['operaator'])
         line.append(args['pohjus'])
@@ -75,6 +71,9 @@ class EvLogFormat:
 
     def keep(self):
         return True
+
+    def logstring(self, **args):
+        return self.message(args)
 
     def message(self, args):
         line = []
@@ -101,36 +100,25 @@ class EvLogFormat:
             # suhteline-valimisjaoskonna-number 1*10DIGIT
             line.append(str(args['jaoskond']))
 
-        if args['tyyp'] in [1, 2, 3]:
+        if args['tyyp'] in [0, 1, 2, 3]:
             #*1valija-andmed =
             #isikukood 11*11DIGIT
             line.append(str(args['isikukood']))
         if args['tyyp'] == 2:
             # pohjus 1*100UTF-8-CHAR
             line.append(args['pohjus'])
+        if args['tyyp'] == 0:
+            line.append(args['nimi'])
+            line.append(args['reanumber'])
         logstring = "\t".join(line)
 
         return logstring
 
+
     # Currently we only check for personal code
     # this can be extended to check anything
     def matches(self, data, line, count):
-
-        # Skip version, identifier and logtype
-        if count < 3:
-            return False
-
         return (line.split("\t")[6][0:11] == data)
-
-
-    # Currently we only cache by personal code
-    # this can be extended to cache anything
-    def cache(self, cc, key, line, count):
-
-        # Skip version, identifier and logtype
-        if count > 2:
-            ik = line.split("\t")[6][0:11]
-            cc[ik] = True
 
 
 class AppLogFormat:
@@ -225,23 +213,6 @@ class LogFile:
         return res
 
 
-    def cache(self, cc, key, form):
-
-        if os.access(self.__filename, os.F_OK):
-            _f = None
-            try:
-                _f = file(self.__filename, 'r')
-                fcntl.lockf(_f, fcntl.LOCK_SH)
-
-                ii = 0
-                for line in _f:
-                    form.cache(cc, key, line, ii)
-                    ii = ii + 1
-
-            finally:
-                if _f != None:
-                    _f.close()
-
 
 class Logger(object):
 
@@ -295,8 +266,6 @@ class Logger(object):
     def contains(self, data):
         return self._log.contains(data, self._form)
 
-    def cache(self, cc, key):
-        self._log.cache(cc, key, self._form)
 
 
 class AppLog(Logger):

@@ -4,7 +4,7 @@
 """
 Copyright: Eesti Vabariigi Valimiskomisjon
 (Estonian National Electoral Committee), www.vvk.ee
-Written in 2004-2013 by Cybernetica AS, www.cyber.ee
+Written in 2004-2014 by Cybernetica AS, www.cyber.ee
 
 This work is licensed under the Creative Commons
 Attribution-NonCommercial-NoDerivs 3.0 Unported License.
@@ -15,11 +15,11 @@ http://creativecommons.org/licenses/by-nc-nd/3.0/.
 import sys
 from election import Election
 import evcommon
-import bdocpythonutils
+import bdocconfig
 import subprocess
 
 def set_bdoc_conf(conf_dir):
-    conf = bdocpythonutils.BDocConfig()
+    conf = bdocconfig.BDocConfig()
     conf.load(conf_dir)
     conf.save(Election().get_bdoc_conf())
     subprocess.check_call(['c_rehash', Election().get_bdoc_ca()])

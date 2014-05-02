@@ -1,5 +1,5 @@
 # OCSP kontrollija
-*/5 * * * *	www-data /usr/share/evote/ocsp_checker.py
+*/5 * * * *	hts /usr/share/evote/ocsp_checker.py
 
 # monitor
 */1 * * * *	hts /usr/share/evote/hts_monitor.py

@@ -3,7 +3,7 @@
  * (Estonian National Electoral Committee), www.vvk.ee
  * Derived work from libdicidocpp library
  * https://svn.eesti.ee/projektid/idkaart_public/trunk/libdigidocpp/
- * Written in 2011-2013 by Cybernetica AS, www.cyber.ee
+ * Written in 2011-2014 by Cybernetica AS, www.cyber.ee
  *
  * This work is licensed under the Creative Commons
  * Attribution-NonCommercial-NoDerivs 3.0 Unported License.
@@ -19,7 +19,11 @@
 #include "crypto/Digest.h"
 #include "xml/xmldsig-core-schema.hxx"
 #include "xml/XAdES.hxx"
+#include <vector>
 
+#define XADES132_NAMESPACE "http://uri.etsi.org/01903/v1.3.2#"
+#define DSIG_NAMESPACE "http://www.w3.org/2000/09/xmldsig#"
+#define ASIC_NAMESPACE "http://uri.etsi.org/02918/v1.2.1#"
 
 namespace bdoc
 {
@@ -29,23 +33,21 @@ namespace bdoc
 	class Signature {
 
 		public:
-			static const std::string DSIG_NAMESPACE;
+			static void init_properties(xml_schema::Properties &properties,
+										const std::string& schema_dir);
 
 			virtual ~Signature();
+
+			static Signature* prepare(std::auto_ptr<dsig::SignatureType>& sig,
+									 const std::string& xml, ContainerInfo *ci);
 
 			static Signature* parse(const std::string& schema_dir,
 					const char *xml_buf, size_t buf_len, ContainerInfo *ci);
 
-			virtual void validateOffline(X509CertStore *store);
+			virtual void validateSignature();
+			virtual void validateCertificate(bdoc::X509CertStore *store, struct tm *tm = NULL) const;
 			virtual void getOCSPResponseValue(std::vector<unsigned char>& data) const = 0;
-
-			virtual std::string getProducedAt() const = 0;
-
-			virtual xml_schema::Uri ocspDigestAlgorithm() const = 0;
-
-			virtual void getRevocationOCSPRef(
-					std::vector<unsigned char>& data,
-					std::string& digestMethodUri) const = 0;
+			virtual bool hasOCSPResponseValue() const = 0;
 
 			std::string getSubject() const;
 			X509Cert getSigningCertificate() const;
@@ -55,13 +57,14 @@ namespace bdoc
 
 		protected:
 
-			virtual const std::string& xadesnamespace() = 0;
+			virtual const std::string xadesnamespace() = 0;
 
 			virtual void checkKeyInfo() const = 0;
 			virtual void checkSignedSignatureProperties() const = 0;
 			virtual void checkQualifyingProperties() const = 0;
 
-			Signature(dsig::SignatureType* signature, const char *xml, size_t xml_len, bdoc::ContainerInfo *ci);
+			Signature(dsig::SignatureType* signature,
+					  const std::string& xml, bdoc::ContainerInfo *ci);
 
 			bdoc::dsig::KeyInfoType& keyInfo() const;
 
@@ -96,7 +99,7 @@ namespace bdoc
 			void checkReferences();
 			void checkSignatureValue();
 			void checkSigningCertificate(
-					bdoc::X509CertStore *store) const;
+					bdoc::X509CertStore *store, struct tm *tm = NULL) const;
 
 
 			bool isReferenceToSigProps(const bdoc::dsig::ReferenceType& refType) const;
@@ -105,46 +108,10 @@ namespace bdoc
 			void checkDocumentRefDigest(const std::string& documentFileName, const dsig::ReferenceType& refType) const;
 
 
-			const char *_xml;
-			size_t _xml_len;
+			std::string _xml;
 			bdoc::ContainerInfo *_bdoc;
 	};
 
-
-	class XAdES111Signature : public Signature {
-
-		public:
-
-			virtual ~XAdES111Signature();
-
-			void getOCSPResponseValue(std::vector<unsigned char>& data) const;
-			std::string getProducedAt() const;
-			xml_schema::Uri ocspDigestAlgorithm() const;
-			void getRevocationOCSPRef(
-					std::vector<unsigned char>& data,
-					std::string& digestMethodUri) const;
-
-		protected:
-
-			friend class Signature;
-
-			static const std::string XADES111_NAMESPACE;
-			const std::string& xadesnamespace();
-
-			XAdES111Signature(
-					dsig::SignatureType* signature,
-					const char *signature_xml,
-					size_t signature_xml_len,
-					bdoc::ContainerInfo *bdoc);
-
-			void checkKeyInfo() const;
-			void checkSignedSignatureProperties() const;
-			void checkQualifyingProperties() const;
-
-		private:
-
-			xades111::UnsignedPropertiesType::UnsignedSignaturePropertiesOptional& unsignSigProps() const;
-	};
 
 	class XAdES132Signature : public Signature {
 
@@ -153,23 +120,17 @@ namespace bdoc
 			virtual ~XAdES132Signature();
 
 			void getOCSPResponseValue(std::vector<unsigned char>& data) const;
-			std::string getProducedAt() const;
-			xml_schema::Uri ocspDigestAlgorithm() const;
-			void getRevocationOCSPRef(
-					std::vector<unsigned char>& data,
-					std::string& digestMethodUri) const;
+			bool hasOCSPResponseValue() const;
 
 		protected:
 
 			friend class Signature;
 
-			static const std::string XADES132_NAMESPACE;
-			const std::string& xadesnamespace();
+			const std::string xadesnamespace();
 
 			XAdES132Signature(
 					dsig::SignatureType* signature,
-					const char *signature_xml,
-					size_t signature_xml_len,
+					const std::string& signature_xml,
 					bdoc::ContainerInfo *bdoc);
 
 			void checkKeyInfo() const;
@@ -189,6 +150,7 @@ namespace bdoc
 			~SignatureValidator();
 
 			std::string getProducedAt() const;
+			void validateBESOffline();
 			OCSP::CertStatus validateBESOnline();
 			std::string getTMSignature();
 			void validateTMOffline();
@@ -208,6 +170,20 @@ namespace bdoc
 			std::vector<unsigned char> _ocspResponse;
 			struct tm _producedAt;
 	};
+
+	class Signatures {
+		Signatures(const Signatures&);
+		Signatures& operator =(const Signatures&);
+	public:
+		std::vector<Signature*> v;
+
+		void parse(const std::string& schema_dir,
+				   const std::string& xml, ContainerInfo *ci);
+
+		Signatures();
+		virtual ~Signatures();
+	};
+
 
 }
 

@@ -4,7 +4,7 @@
 """
 Copyright: Eesti Vabariigi Valimiskomisjon
 (Estonian National Electoral Committee), www.vvk.ee
-Written in 2004-2013 by Cybernetica AS, www.cyber.ee
+Written in 2004-2014 by Cybernetica AS, www.cyber.ee
 
 This work is licensed under the Creative Commons
 Attribution-NonCommercial-NoDerivs 3.0 Unported License.
@@ -18,8 +18,11 @@ import os
 import sys
 
 
-def filename(data_file):
-    ext = ".sha1"
+SHA256 = "sha256"
+SHA1 = "sha1"
+
+
+def filename(data_file, ext):
     return data_file + ext
 
 
@@ -32,23 +35,19 @@ def _check_file(ffile):
         raise Exception("Faili " + ffile + " ei eksisteeri")
 
 
-def _read_sha1(ffile):
+def _read_sha256(ffile):
     _check_file(ffile)
     _rf = open(ffile, "r")
     try:
-        return base64.decodestring(_rf.read())
+        return _rf.read()
     finally:
         _rf.close()
 
 
-def has(data_file):
-    return _has(filename(data_file))
-
-
-def compute_voters_files_sha1(voters_file_hashes_dir):
+def compute_voters_files_sha256(voters_file_hashes_dir):
     file_list = os.listdir(voters_file_hashes_dir)
     file_list.sort()
-    _s = hashlib.sha1()
+    _s = hashlib.sha256()
     for i in file_list:
         _s.update(i)
     return _s.hexdigest()
@@ -58,34 +57,61 @@ def compute(ffile):
     _check_file(ffile)
     _rf = open(ffile, "r")
     try:
-        _s = hashlib.sha1()
+        _s = hashlib.sha256()
         for line in _rf:
             _s.update(line)
         return _s.hexdigest()
     finally:
         _rf.close()
 
+def compute_sha1(ffile):
+    with open(ffile, "r") as f:
+        return base64.encodestring(hashlib.sha1(f.read()).hexdigest()).strip()
+    return None
+
 
 def store(data_file):
     checksum = compute(data_file)
-    ksum_f = file(filename(data_file), "w")
+    ksum_f = file("%s.%s" % (data_file, SHA256), "w")
     try:
-        ksum_f.write(base64.encodestring(checksum))
+        ksum_f.write(checksum)
     finally:
         ksum_f.close()
 
 
-def check(data_file):
-    try:
-        checksum = _read_sha1(filename(data_file))
-        checksum2 = compute(data_file)
-        return checksum == checksum2
-    except: # pylint: disable=W0702
+def check(data_file, strict = False):
+
+    checksum_now = compute(data_file)
+    checksum_file = None
+    method = None
+
+    fn = "%s.%s" % (data_file, SHA256)
+    if _has(fn):
+        with open(fn, "r") as f:
+            checksum_file = f.read()
+            method = SHA256
+
+    fn = "%s.%s" % (data_file, SHA1)
+    if (checksum_file == None) and _has(fn):
+        with open(fn, "r") as f:
+            checksum_file = f.read().strip()
+            method = SHA1
+            checksum_now = compute_sha1(data_file)
+
+    if checksum_file:
+        print "Kontrollsummafail olemas, kontrollin (%s)." % method
+        return (checksum_now == checksum_file)
+
+    if strict:
         return False
+
+    print "Kontrollsummafail puudub, kuvan kontrollsumma (%s)." % SHA256
+    print checksum_now
+    return True
 
 
 def votehash(vote):
-    return base64.encodestring(hashlib.sha1(vote).digest()).strip()
+    return base64.encodestring(hashlib.sha256(vote).digest()).strip()
 
 
 def usage():

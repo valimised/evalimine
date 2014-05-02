@@ -4,7 +4,7 @@
 """
 Copyright: Eesti Vabariigi Valimiskomisjon
 (Estonian National Electoral Committee), www.vvk.ee
-Written in 2004-2013 by Cybernetica AS, www.cyber.ee
+Written in 2004-2014 by Cybernetica AS, www.cyber.ee
 
 This work is licensed under the Creative Commons
 Attribution-NonCommercial-NoDerivs 3.0 Unported License.
@@ -29,15 +29,15 @@ if not evcommon.testrun():
     os.umask(007)
     form = cgi.FieldStorage()
 
-    has_sha1 = form.has_key(evcommon.POST_VOTERS_FILES_SHA1)
+    has_sha256 = form.has_key(evcommon.POST_VOTERS_FILES_SHA256)
     has_code = form.has_key(evcommon.POST_PERSONAL_CODE)
     has_vote = form.has_key(evcommon.POST_EVOTE)
     has_sess = form.has_key(evcommon.POST_SESS_ID)
 
-    if (not has_sha1):
+    if (not has_sha256):
         bad_input()
 
-    val_sha = form.getvalue(evcommon.POST_VOTERS_FILES_SHA1)
+    val_sha = form.getvalue(evcommon.POST_VOTERS_FILES_SHA256)
 
     if (not has_code) and (not has_vote):
         msg = htsalldisp.consistency(val_sha)

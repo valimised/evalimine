@@ -3,7 +3,7 @@
 """
 Copyright: Eesti Vabariigi Valimiskomisjon
 (Estonian National Electoral Committee), www.vvk.ee
-Written in 2004-2013 by Cybernetica AS, www.cyber.ee
+Written in 2004-2014 by Cybernetica AS, www.cyber.ee
 
 This work is licensed under the Creative Commons
 Attribution-NonCommercial-NoDerivs 3.0 Unported License.
@@ -15,12 +15,9 @@ import sys
 import exception_msg
 
 #groups
-MID_VEATEATED = "MID_VEATEATED"
-HES_VEATEATED = "HES_VEATEATED"
-HTS_VEATEATED = "HTS_VEATEATED"
 VERIFICATION_ERRORS = "VERIFICATION_ERRORS"
 
-GROUPS = [MID_VEATEATED, HES_VEATEATED, HTS_VEATEATED, VERIFICATION_ERRORS]
+GROUPS = [VERIFICATION_ERRORS]
 
 MSGSTRINGS_IN_FILE = 'evstrings.in'
 MSGSTRINGS_FILE = 'evstrings.py'
@@ -48,21 +45,6 @@ def create_msgstrings_py(strings):
     _wf.write('"""\n')
     _wf.write('Outcoming server error and message strings\n')
     _wf.write('"""\n\n')
-
-    _wf.write('###########################################\n')
-    _wf.write('# HESist väljaminevad mobiil-id veateated #\n')
-    _wf.write('###########################################\n\n')
-    write_lines(_wf, strings[MID_VEATEATED])
-
-    _wf.write('#################################\n')
-    _wf.write('# HESist väljaminevad veateated #\n')
-    _wf.write('#################################\n\n')
-    write_lines(_wf, strings[HES_VEATEATED])
-
-    _wf.write('#################################\n')
-    _wf.write('# HTSist väljaminevad veateated #\n')
-    _wf.write('#################################\n\n')
-    write_lines(_wf, strings[HTS_VEATEATED])
 
     _wf.write('################################\n')
     _wf.write('# Verification protocol errors #\n')

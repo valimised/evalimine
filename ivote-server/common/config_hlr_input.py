@@ -4,7 +4,7 @@
 """
 Copyright: Eesti Vabariigi Valimiskomisjon
 (Estonian National Electoral Committee), www.vvk.ee
-Written in 2004-2013 by Cybernetica AS, www.cyber.ee
+Written in 2004-2014 by Cybernetica AS, www.cyber.ee
 
 This work is licensed under the Creative Commons
 Attribution-NonCommercial-NoDerivs 3.0 Unported License.
@@ -35,15 +35,8 @@ def main_function():
     el_id = sys.argv[1]
     _if = sys.argv[2]
 
-    if not check_file(_if):
-        print "Faili " + _if + " ei eksisteeri"
-        sys.exit(1)
 
-    if not ksum.has(_if):
-        print "Faili " + ksum.filename(_if) + " ei eksisteeri"
-        sys.exit(1)
-
-    if not ksum.check(_if):
+    if not ksum.check(_if, True):
         print "Kontrollsumma ei klapi"
         sys.exit(1)
 
@@ -51,7 +44,7 @@ def main_function():
     reg.ensure_key(['hlr', 'input'])
     dst = reg.path(['hlr', 'input', 'votes'])
     os.system("cp " + _if + " " + dst)
-    os.system("cp " + ksum.filename(_if) + " " + ksum.filename(dst))
+    ksum.store(dst)
     Election().config_hlr_input_elid_done(el_id)
 
 

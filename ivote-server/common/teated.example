@@ -8,108 +8,6 @@
 
 
 
-[MID_VEATEATED]
-
-# Ei ole Mobiil-ID kasutaja
-MID_ERROR_301=Telefoninumber ei kuulu Mobiil-ID kasutajale
-
-# Sertifikaat on tühistatud
-MID_ERROR_302=Teie sertifikaat on kas tühistatud või peatatud.
-
-# Ei ole Mobiil-ID kasutaja
-MID_ERROR_303=Teil on mobiil-id teenus aktiveerimata
-
-# Sisemine viga
-MID_INTERNAL_ERROR=Mobiil-ID tehniline viga.
-
-# Mobiil-ID ei olnud kasutamisvalmis
-MID_NOT_READY=Mobiil-ID funktsionaalsus ei ole kasutatav. Proovige mõne aja pärast uuesti.
-
-# Telefoniga ei saadud kontakti
-MID_PHONE_ABSENT=Mobiiltelefon ei ole levis.
-
-# Ei ole lubatud e-hääletada selle sertifikaadiga
-MID_POLICY=Teie Mobiil-ID ei võimalda e-hääletada
-
-# Sõnumi saatmisel tekkis veaolukord
-MID_SENDING_ERROR=Viga sõnumi saatmisel. Palun proovige uuesti.
-
-# SIM rakendus viskas erindi
-MID_SIM_ERROR=SIM kaardi viga. Palun proovige uuesti.
-
-# Viga igaks muuks juhtumiks
-MID_UNKNOWN_ERROR=Tehniline viga Mobiil-ID rakendamisel
-
-# Kasutaja katkestas tegevuse
-MID_USER_CANCEL=Katkestasite PIN-i sisestuse.
-
-
-
-[HES_VEATEATED]
-
-# Veateade, kui häälete saatja ja varem autenditud isikud ei lange kokku
-ERINEV_KASUTAJA=Hääletaja ja autentinud isik pole samad
-
-# Veateade, kui hääletamine on juba lõppenud (ka HTSis)
-HAALETUS_ON_LOPPENUD=E-hääletamine on juba lõppenud
-
-# Veateade, kui hääletamist pole veel alustatud (ka HTSis)
-HAALETUS_POLE_ALANUD=E-hääletamine pole veel alanud
-
-# Veateade, kui HESi ja HTSi valijate nimekirjad pole kookõlalised (ka HTSis)
-HOOLDUS=Valimiste servereid hooldatakse. Proovige peale 15. minutit uuesti
-
-# Veateade, kui valija pole valimishetkel 18 aastane
-POLE_18=Te ei saa hääletamisest osa võtta, sest Te pole veel 18-aastane. Proovige peale sünnipäeva uuesti
-
-# Veateade, kui valija isikukood ei kuulu valijate nimekirja
-POLE_VALIJA=Te ei kuulu valijate nimekirja
-
-# Veateade, mis antakse verifyBESOffline abil
-SERTIFIKAAT_ON_AEGUNUD=Teie sertifikaat on aegunud. Palun pöörduge lähimasse Swedbanki või SEB kontorisse või Kodakondsus- ja Migratsiooniameti osakonda
-
-# Veateade, mis antakse digidoclib'i veale koodiga 81 (ERR_CERT_ISSUER)
-SERTIFIKAAT_POLE_SELLE_CA_POOLT_VALJA_ANTUD=E-hääletamine on võimalik ainult Eesti ID-kaardiga
-
-# Veateade, kui tekkis miski sisemine tõrge
-TEHNILINE_VIGA=Tehniline viga
-
-
-
-[HTS_VEATEATED]
-
-# Veateade, mis antakse digidoclib'i veale koodiga 109 (ERR_OCSP_TRYLATER)
-HAALETAMINE_POLE_AJUTISELT_VOIMALIK=Hääletamine pole ajutise sisemise vea tõttu võimalik. Proovige mõne aja pärast uuesti
-
-# Veateade, kui tuvastatakse, et hääletaja siiski ei kuulu valijate nimekirja
-POLE_LUBATUD_HAALETADA=Isikul koodiga %s ei ole lubatud hääletada valimistel "%s"
-
-# Veateade, mis antakse verifyBESOnline abil
-SERTIFIKAAT_ON_TYHISTATUD_VOI_PEATATUD=Teie sertifikaat ei kehti. Palun pöörduge lähimasse Swedbanki või SEB kontorisse või Kodakondsus- ja Migratsiooniameti osakonda
-
-# Internal error when issuing a vote ID for verification
-TECHNICAL_ERROR_ISSUE_VOTE_ID=Tehniline viga hääleidentifikaatori väljastamisel
-
-# Veateade, kui hääle talletamisel tekkis sisemine viga
-TEHNILINE_VIGA_HAALE_TALLETAMISEL=Tehniline viga hääle talletamisel
-
-# Veateade, kui DigiDoci hääle verifitseerimine nurjus ja täpsemat veatedet ei selgunud
-TEHNILINE_VIGA_HAALE_VERIFITSEERIMISEL=Tehniline viga e-hääletamise serveri töös. Detailid: hääle verifitseerimine ebaõnnestus. Palun teatage veast aadressil val@riigikogu.ee
-
-# Veateade, kui HESi ja HTSi valijate nimekirjade koosõlalisuse kontrollil tekkis sisemine viga
-TEHNILINE_VIGA_KOOSKOLASTUSE_KONTROLLIL=Tehniline viga kooskõlalisuse kontrollil
-
-# Veateade, kui korduvhääletuse kontrollil tekkis sisemine viga
-TEHNILINE_VIGA_KORDUVHAALETUSE_KONTROLLIL=Tehniline viga korduvhääletuse kontrollil
-
-# Veateade, kui hääletaja on ületanud maksimaalselt lubatud häälte arvu ühe hääletaja kohta
-TEHNILINE_VIGA_MAX_HAALTE_ARV_PER_HAALETAJA_ON_ULETATUD=Süsteemi poolt toetatud maksimaalne antud häälte arv ühe hääletaja kohta on ületatud
-
-# Veateade, kui HTSile esitati vigases vormingus päring
-VIGASED_SISENDPARAMEETRID=Vigased sisendparameetrid
-
-
-
 [VERIFICATION_ERRORS]
 
 # Error message shown when the query had too many or unknown parameters
@@ -117,9 +15,6 @@ BAD_PARAMETERS=Vigased sisendparameetrid
 
 # The verification vote ID has expired, reached it's maximum count or is otherwise invalid
 INVALID_VOTE_ID=Seda hääle identifikaatorit ei saa kasutada hääle kontrollimiseks
-
-# Error message given for internal errors during configuration loading
-TECHNICAL_ERROR_LOAD_CONFIGURATION=Tehniline viga seadistuse laadimisel
 
 # Error message given for internal errors during vore verification
 TECHNICAL_ERROR_VOTE_VERIFICATION=Tehniline viga hääle kontrollimisel

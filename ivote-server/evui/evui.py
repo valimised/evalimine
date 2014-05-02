@@ -4,7 +4,7 @@
 """
 Copyright: Eesti Vabariigi Valimiskomisjon
 (Estonian National Electoral Committee), www.vvk.ee
-Written in 2004-2013 by Cybernetica AS, www.cyber.ee
+Written in 2004-2014 by Cybernetica AS, www.cyber.ee
 
 This work is licensed under the Creative Commons
 Attribution-NonCommercial-NoDerivs 3.0 Unported License.
@@ -21,7 +21,9 @@ from election import Election
 from election import ElectionState
 import election
 import evcommon
+import evreg
 import burner
+import autocmd
 
 import evfiles
 import serviceutil
@@ -81,6 +83,7 @@ CHOICE_SET_HES_HTS_CONF = "Säti HTSi konfiguratsioon"
 CHOICE_SET_HSM_CONF = "Initsialiseeri HSM"
 CHOICE_START_COUNTING = "Alusta lugemisperioodi"
 CHOICE_PRE_START_COUNTING_HES = "Nimekirjade väljastamise lõpetamine"
+CHOICE_CANCEL_PRE_START_COUNTING_HES = "Nimekirjade väljastamise taastamine"
 CHOICE_START_COUNTING_HES = "Lõpeta hääletusperiood"
 CHOICE_START_ELECTION = "Alusta hääletusperioodi"
 CHOICE_START_REVOCATION = "Alusta tühistusperioodi"
@@ -91,6 +94,11 @@ CHOICE_VIEW_STATUS_REPORT = "Vaata vaheauditi aruannet"
 CHOICE_VOTERS_FILE_HISTORY = "Valijanimekirjade uuendamise ajalugu"
 CHOICE_VERIFICATION_CONF = "Seadista kontrollitavus"
 CHOICE_GET_VERIFICATION_CONF = "Vaata kontrollitavuse sätteid"
+CHOICE_SCHEDULE_AUTOSTART = "Seadista hääletusperioodi automaatne algus"
+CHOICE_UNSCHEDULE_AUTOSTART = "Kustuta hääletusperioodi automaatne algus"
+CHOICE_SCHEDULE_AUTOSTOP = "Seadista hääletusperioodi automaatne lõpp"
+CHOICE_UNSCHEDULE_AUTOSTOP = "Kustuta hääletusperioodi automaatne lõpp"
+CHOICE_SCHEDULE_CONF = "Seadista automaatse lõpu kestvus"
 
 # Konfi skriptid
 SCRIPT_HTS_STATE = "hts_state.py"
@@ -111,8 +119,11 @@ MENU_MAINMENU = "Peamenüü"
 STR_YES = "yes"
 #STR_NO =  "no"
 
+# PID
+MESSAGE_PID_EXISTS = "%s on juba olemas! Jätkamine võib lõhkuda olemasoleva operaatori menüü.\n" \
+                     "Kas soovid jätkata" % autocmd.REFRESH_PID_VALUE
 
-SHA1_KEYS = [ \
+SHA256_KEYS = [ \
     evcommon.ELECTIONRESULT_STR, \
     evcommon.ELECTIONRESULT_STAT_STR, \
     evcommon.ELECTIONS_RESULT_STR, \
@@ -267,13 +278,34 @@ class EvUI:
                     sub.add_item(CHOICE_DISABLE_VOTERS_LIST, \
                                             serviceutil.do_disable_voters_list)
 
-            if self.state == election.ETAPP_ENNE_HAALETUST and \
-                Election().is_hes_configured():
-                sub.add_item(CHOICE_START_ELECTION, self.do_change_state)
+            if Election().is_hes_configured():
+                if self.state < election.ETAPP_HAALETUS:
+                    if autocmd.scheduled(autocmd.COMMAND_START):
+                        sub.add_item(CHOICE_UNSCHEDULE_AUTOSTART, \
+                                            serviceutil.do_unschedule_autostart)
+                    else:
+                        sub.add_item(CHOICE_SCHEDULE_AUTOSTART, \
+                                            serviceutil.do_schedule_autostart)
+
+                if self.state == election.ETAPP_ENNE_HAALETUST:
+                    sub.add_item(CHOICE_START_ELECTION, self.do_change_state)
+
+                if self.state < election.ETAPP_LUGEMINE:
+                    if autocmd.scheduled(autocmd.COMMAND_PREPARE_STOP) or \
+                            autocmd.scheduled(autocmd.COMMAND_STOP):
+                        sub.add_item(CHOICE_UNSCHEDULE_AUTOSTOP, \
+                                            serviceutil.do_unschedule_autostop)
+                    elif Election().allow_new_voters():
+                        sub.add_item(CHOICE_SCHEDULE_AUTOSTOP, \
+                                            serviceutil.do_schedule_autostop)
 
             if self.state == election.ETAPP_HAALETUS:
-                sub.add_item(CHOICE_PRE_START_COUNTING_HES, \
-                                        serviceutil.do_pre_start_counting_hes)
+                if Election().allow_new_voters():
+                    sub.add_item(CHOICE_PRE_START_COUNTING_HES, \
+                                            serviceutil.do_pre_start_counting_hes)
+                else:
+                    sub.add_item(CHOICE_CANCEL_PRE_START_COUNTING_HES, \
+                                            serviceutil.do_cancel_pre_start_counting_hes)
                 sub.add_item(CHOICE_START_COUNTING_HES, self.do_change_state)
 
         def create_sub1_hts(sub):
@@ -611,19 +643,19 @@ class EvUI:
     def do_file_action_one(self, args = None):
         self.do_file_action([self.file_table[args]])
 
-    def get_sha1_file(self, key):
-        if key in SHA1_KEYS or key.find("tokend.") == 0:
-            sha1_file = self.file_table[key] + ".sha1"
-            if os.access(sha1_file, os.F_OK):
-                return sha1_file
+    def get_sha256_file(self, key):
+        if key in SHA256_KEYS or key.find("tokend.") == 0:
+            sha256_file = self.file_table[key] + ".sha256"
+            if os.access(sha256_file, os.F_OK):
+                return sha256_file
         return None
 
     def do_file_action_one_wsha(self, args = None):
         files = []
         files.append(self.file_table[args])
-        sha1f = self.get_sha1_file(args)
-        if sha1f:
-            files.append(sha1f)
+        sha256f = self.get_sha256_file(args)
+        if sha256f:
+            files.append(sha256f)
         self.do_file_action(files)
 
     def do_file_action_all(self):
@@ -633,9 +665,9 @@ class EvUI:
         files = []
         for el in self.file_table:
             files.append(self.file_table[el])
-            sha1f = self.get_sha1_file(el)
-            if sha1f:
-                files.append(sha1f)
+            sha256f = self.get_sha256_file(el)
+            if sha256f:
+                files.append(sha256f)
         self.do_file_action(files)
 
     def do_file_action(self, args):
@@ -693,11 +725,11 @@ class EvUI:
                     print "Ei ole midagi eksportida"
                     return
 
-                # Kui on, siis ka vastav sha1 fail exporti
+                # Kui on, siis ka vastav sha256 fail exporti
                 for file_key in self.file_table.keys():
-                    sha1f = self.get_sha1_file(file_key)
-                    if sha1f:
-                        file_list.append(sha1f)
+                    sha256f = self.get_sha256_file(file_key)
+                    if sha256f:
+                        file_list.append(sha256f)
                 if not cd_burner.append_files(i, file_list):
                     return
             cd_burner.burn()
@@ -735,11 +767,14 @@ class EvUI:
 
     def update(self):
         self.state = ElectionState().get()
-        self.update_files(self.cur_elid)
+        use_binary = True
+        if self.file_action == ACTION_BROWSE_FILE:
+            use_binary = False
+        self.update_files(self.cur_elid, use_binary)
         if self.ui_update_function:
             self.ui_update_function()
 
-    def update_files(self, elid):
+    def update_files(self, elid, usebinary=True):
         """
         Siin hoiame up-to-date faili tabelit, mida saab
         sirvida/printida/exportida
@@ -762,25 +797,55 @@ class EvUI:
             files.add_file(evfiles.voter_list_log_file())
             files.add_file(evfiles.elections_result_file(elid))
             files.add_file(evfiles.electorslist_file(elid))
+            files.add_file(evfiles.electorslist_file_pdf(elid))
             files.add_file(evfiles.revreport_file(elid))
             files.add_file(evfiles.statusreport_file())
+            files.add_file(evfiles.ocsp_log_file())
             evfiles.add_hts_files_to_table(elid, files)
         elif Election().is_hlr():
             files.add_file(evfiles.log4_file(elid))
             files.add_file(evfiles.log5_file(elid))
             files.add_file(evfiles.application_log_file())
             files.add_file(evfiles.error_log_file())
+            files.add_file(evfiles.electionresult_zip_file(elid))
             files.add_file(evfiles.electionresult_file(elid))
             files.add_file(evfiles.electionresultstat_file(elid))
 
-        self.file_table = files.get_existing_files()
+        self.file_table = files.get_existing_files(usebinary)
 
+
+class RefreshSignal(Exception):
+    pass
+
+def usr1_handler(signal, frame):
+    """Handler for SIGUSR1 sent by the automatic election start script."""
+    raise RefreshSignal
+
+def write_pid():
+    reg = evreg.Registry(root=evcommon.EVREG_CONFIG)
+    reg.ensure_key(autocmd.REFRESH_PID_KEY)
+    try:
+        pid = reg.read_integer_value(autocmd.REFRESH_PID_KEY, \
+                autocmd.REFRESH_PID_VALUE)
+    except (IOError, LookupError):
+        pid = None
+
+    # If a PID exists and the user does not want to continue, return None.
+    if pid and not uiutil.ask_yes_no(MESSAGE_PID_EXISTS, uiutil.ANSWER_NO):
+        return None
+    return reg.create_integer_value(autocmd.REFRESH_PID_KEY, \
+            autocmd.REFRESH_PID_VALUE, os.getpid())
 
 def main():
     # Ignoreerime SIGTSTP, st. Ctrl+Z, Ctrl+C ja Aborti
     signal.signal(signal.SIGTSTP, signal.SIG_IGN)
     signal.signal(signal.SIGINT, signal.SIG_IGN)
     signal.signal(signal.SIGABRT, signal.SIG_IGN)
+    signal.signal(signal.SIGUSR1, signal.SIG_IGN)
+
+    pid = write_pid()
+    if not pid:
+        return
 
     evui = EvUI()
     uiutil.clrscr()
@@ -789,6 +854,7 @@ def main():
 
     while not evui.get_quit_flag():
         try:
+            signal.signal(signal.SIGUSR1, usr1_handler)
             evui.update()
             evui.draw()
             cmd = raw_input(prompt)
@@ -801,7 +867,16 @@ def main():
                 continue
             else:
                 cmd = str(len(evui.cmd_list))
+        except RefreshSignal:
+            print
+            continue
+        signal.signal(signal.SIGUSR1, signal.SIG_IGN)
         evui.execute(cmd.split())
+
+    try:
+        pid.delete()
+    except OSError:
+        pass # pid file has been deleted
 
     # Kustutame ka CD-lt importimisel tekitatud ajutised failid
     uiutil.del_tmp_files()
@@ -810,7 +885,5 @@ def main():
 
 if __name__ == "__main__":
     main()
-
-
 
 # vim:set ts=4 sw=4 et fileencoding=utf8:

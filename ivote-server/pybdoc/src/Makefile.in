@@ -99,7 +99,7 @@ LTLIBRARIES = $(lib_LTLIBRARIES)
 libbdoc_la_DEPENDENCIES = crypto/libbdoccrypto.la xml/libbdocxml.la
 am_libbdoc_la_OBJECTS = BDoc.lo CallStack.lo ChallengeVerifierImpl.lo \
 	DateTime.lo PyBDoc.lo Signature.lo StackException.lo \
-	XMLHelper.lo
+	XMLHelper.lo testutil.lo
 libbdoc_la_OBJECTS = $(am_libbdoc_la_OBJECTS)
 DEFAULT_INCLUDES = -I.@am__isrc@ -I$(top_builddir)
 depcomp = $(SHELL) $(top_srcdir)/depcomp
@@ -301,7 +301,7 @@ top_srcdir = @top_srcdir@
 SUBDIRS = xml crypto
 AM_CXXFLAGS = -Wall -Wextra -Werror -g -O0
 lib_LTLIBRARIES = libbdoc.la
-libbdoc_la_SOURCES = BDoc.cpp CallStack.cpp ChallengeVerifierImpl.cpp DateTime.cpp PyBDoc.cpp Signature.cpp StackException.cpp XMLHelper.cpp
+libbdoc_la_SOURCES = BDoc.cpp CallStack.cpp ChallengeVerifierImpl.cpp DateTime.cpp PyBDoc.cpp Signature.cpp StackException.cpp XMLHelper.cpp testutil.cpp
 libbdoc_la_LIBADD = crypto/libbdoccrypto.la xml/libbdocxml.la -lxerces-c \
 	-lxml-security-c -lcrypto -lssl -ldl
 
@@ -388,6 +388,7 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/Signature.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/StackException.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/XMLHelper.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/testutil.Plo@am__quote@
 
 .cpp.o:
 @am__fastdepCXX_TRUE@	$(CXXCOMPILE) -MT $@ -MD -MP -MF $(DEPDIR)/$*.Tpo -c -o $@ $<

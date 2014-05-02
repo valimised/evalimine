@@ -4,7 +4,7 @@
 """
 Copyright: Eesti Vabariigi Valimiskomisjon
 (Estonian National Electoral Committee), www.vvk.ee
-Written in 2004-2013 by Cybernetica AS, www.cyber.ee
+Written in 2004-2014 by Cybernetica AS, www.cyber.ee
 
 This work is licensed under the Creative Commons
 Attribution-NonCommercial-NoDerivs 3.0 Unported License.
@@ -25,7 +25,7 @@ RE_BASE64 = re.compile('^[a-zA-Z0-9+/=]+$')
 RE_BASE64_LINES = re.compile('^[a-zA-Z0-9+/=\n]+$')
 RE_HEX = re.compile('^[a-fA-F0-9]+$')
 RE_LINENO = re.compile('^\d{0,11}$')
-RE_PHONENO = re.compile(r'^\+?(\d|\s){4,15}$')
+RE_PHONENO = re.compile(r'^\+(\d){7,15}$')
 RE_SIGNING_TIME = re.compile('^[TZ0-9:-]+$')
 RE_NUMBER100 = re.compile('^\d{1,100}$')
 
@@ -173,8 +173,8 @@ def is_mobid_phoneno(str_):
     return RE_PHONENO.match(str_) <> None
 
 
-def is_voters_file_sha1(str_):
-    return len(str_) == 40 and is_hex(str_)
+def is_voters_file_sha256(str_):
+    return len(str_) == 64 and is_hex(str_)
 
 
 def is_session_id(str_):

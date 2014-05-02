@@ -3,7 +3,7 @@
  * (Estonian National Electoral Committee), www.vvk.ee
  * Derived work from libdicidocpp library
  * https://svn.eesti.ee/projektid/idkaart_public/trunk/libdigidocpp/
- * Written in 2011-2013 by Cybernetica AS, www.cyber.ee
+ * Written in 2011-2014 by Cybernetica AS, www.cyber.ee
  *
  * This work is licensed under the Creative Commons
  * Attribution-NonCommercial-NoDerivs 3.0 Unported License.
@@ -30,7 +30,6 @@ void __composeResultInfo(BDocVerifierResult *res, bdoc::Signature *sig,
 			const char* xml, size_t xml_len)
 {
 	res->subject = sig->getSubject();
-	res->ocsp_time = sig->getProducedAt();
 	res->signature = std::string(xml, xml_len);
 }
 
@@ -74,11 +73,6 @@ void terminate() {
 	xercesc::XMLPlatformUtils::Terminate();
 }
 
-std::list<std::string> list_policies(const unsigned char *buf, size_t len)
-{
-	bdoc::X509Cert cert(buf, len);
-	return cert.policies();
-}
 
 //
 //
@@ -219,12 +213,17 @@ const BDocVerifierResult BDocVerifier::verifyBESOffline(
 	try {
 		std::auto_ptr<bdoc::Signature> sig(bdoc::Signature::parse(conf->getSchemaDir(), xml, xml_len, bdoc));
 		__composeResultInfo(&res, sig.get(), xml, xml_len);
-		sig->validateOffline(conf->getCertStore());
 
+		// validateOffline also checks if the certificate has
+		// expired/is not yet valid, but check for it explicitly to
+		// provide better error messages.
 		bdoc::X509Cert x509 = sig->getSigningCertificate();
 		if (!x509.isValid()) {
 			__composeResultErrorInfo(&res, "Certificate is expired");
 			res.cert_is_valid = false;
+		} else {
+			bdoc::SignatureValidator sv(sig.get(), conf);
+			sv.validateBESOffline();
 		}
 	}
 	catch (bdoc::StackExceptionBase& exc) {
@@ -239,14 +238,17 @@ const BDocVerifierResult BDocVerifier::verifyBESOffline(
 	return res;
 }
 
-const BDocVerifierResult BDocVerifier::verifyBESOnline(
+const BDocVerifierResult BDocVerifier::verifyInHTS(
 					const char* xml, size_t xml_len)
 {
 	BDocVerifierResult res;
 	try {
 		std::auto_ptr<bdoc::Signature> sig(bdoc::Signature::parse(conf->getSchemaDir(), xml, xml_len, bdoc));
 		__composeResultInfo(&res, sig.get(), xml, xml_len);
-		sig->validateOffline(conf->getCertStore());
+
+        if (sig->hasOCSPResponseValue()) {
+            return verifyTMOffline(xml, xml_len);
+        }
 
 		bdoc::SignatureValidator sv(sig.get(), conf);
 		bdoc::OCSP::CertStatus status = sv.validateBESOnline();
@@ -297,11 +299,11 @@ const BDocVerifierResult BDocVerifier::verifyTMOffline(
 	try {
 		std::auto_ptr<bdoc::Signature> sig(bdoc::Signature::parse(conf->getSchemaDir(), xml, xml_len, bdoc));
 		__composeResultInfo(&res, sig.get(), xml, xml_len);
-		sig->validateOffline(conf->getCertStore());
 
 		bdoc::SignatureValidator sv(sig.get(), conf);
 		res.ocsp_is_good = false;
 		sv.validateTMOffline();
+		res.ocsp_time = sv.getProducedAt();
 		res.ocsp_is_good = true;
 	}
 	catch (bdoc::StackExceptionBase& exc) {

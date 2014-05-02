@@ -4,7 +4,7 @@
 """
 Copyright: Eesti Vabariigi Valimiskomisjon
 (Estonian National Electoral Committee), www.vvk.ee
-Written in 2004-2013 by Cybernetica AS, www.cyber.ee
+Written in 2004-2014 by Cybernetica AS, www.cyber.ee
 
 This work is licensed under the Creative Commons
 Attribution-NonCommercial-NoDerivs 3.0 Unported License.
@@ -13,8 +13,6 @@ http://creativecommons.org/licenses/by-nc-nd/3.0/.
 """
 
 import sys
-from election import Election
-from election import ElectionState
 import election
 import evcommon
 import exception_msg
@@ -35,23 +33,23 @@ class ElectionCreator:
     def init_hts(self):
         import htscommon
 
-        Election().get_root_reg().ensure_key(htscommon.get_verification_key())
+        election.Election().get_root_reg().ensure_key(\
+                htscommon.get_verification_key())
         self.__quest.create_keys(G_HTS_KEYS)
-        self.__quest.create_log_files()
         self.__quest.create_revlog()
 
     def init_hlr(self):
         self.__quest.create_keys(G_HLR_KEYS)
-        self.__quest.create_log_files()
 
     def prepare(self, ex_elid, ex_type, ex_descr):
         election.create_registry()
-        Election().init_keys()
-        self.__quest = Election().new_question(ex_elid, ex_type, ex_descr)
+        election.Election().init_keys()
+        self.__quest = election.Election().new_question(\
+                ex_elid, ex_type, ex_descr)
 
     def init_done(self): # pylint: disable=R0201
-        ElectionState().init()
-        Election().init_conf_done()
+        election.ElectionState().init()
+        election.Election().init_conf_done()
 
 
 def usage():
@@ -68,11 +66,11 @@ def execute(ex_elid, ex_type, ex_descr):
 
     creat.prepare(ex_elid, ex_type, ex_descr)
 
-    if Election().is_hes():
+    if election.Election().is_hes():
         creat.init_hes()
-    elif Election().is_hts():
+    elif election.Election().is_hts():
         creat.init_hts()
-    elif Election().is_hlr():
+    elif election.Election().is_hlr():
         creat.init_hlr()
     else:
         raise Exception('Serveri tüüp määramata')

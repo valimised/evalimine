@@ -3,7 +3,7 @@
  * (Estonian National Electoral Committee), www.vvk.ee
  * Derived work from libdicidocpp library
  * https://svn.eesti.ee/projektid/idkaart_public/trunk/libdigidocpp/
- * Written in 2011-2013 by Cybernetica AS, www.cyber.ee
+ * Written in 2011-2014 by Cybernetica AS, www.cyber.ee
  *
  * This work is licensed under the Creative Commons
  * Attribution-NonCommercial-NoDerivs 3.0 Unported License.
@@ -26,6 +26,7 @@ namespace bdoc
 		namespace date
 		{
 			std::string xsd2string(const xml_schema::DateTime& time);
+			void string2tm(const std::string& time, struct tm& tm);
 
 			xml_schema::DateTime currentTime();
 			xml_schema::DateTime makeDateTime(const std::time_t& time);

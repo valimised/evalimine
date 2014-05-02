@@ -3,7 +3,7 @@
  * (Estonian National Electoral Committee), www.vvk.ee
  * Derived work from libdicidocpp library
  * https://svn.eesti.ee/projektid/idkaart_public/trunk/libdigidocpp/
- * Written in 2011-2013 by Cybernetica AS, www.cyber.ee
+ * Written in 2011-2014 by Cybernetica AS, www.cyber.ee
  *
  * This work is licensed under the Creative Commons
  * Attribution-NonCommercial-NoDerivs 3.0 Unported License.
@@ -37,7 +37,7 @@ namespace bdoc
 		CertStatus checkCert(X509* cert, X509* issuer, const std::vector<unsigned char>& nonce);
 		CertStatus checkCert(X509* cert, X509* issuer, const std::vector<unsigned char>& nonce,
 				std::vector<unsigned char>& ocspResponseDER, tm& producedAt);
-		void verifyResponse(const std::vector<unsigned char>& ocspResponseDER) const;
+		void verifyResponse(const std::vector<unsigned char>& ocspResponseDER, tm& producedAt) const;
 		std::vector<unsigned char> getNonce(const std::vector<unsigned char>& ocspResponseDER) const;
 
 	private:

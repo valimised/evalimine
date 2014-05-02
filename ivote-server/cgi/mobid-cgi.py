@@ -4,7 +4,7 @@
 """
 Copyright: Eesti Vabariigi Valimiskomisjon
 (Estonian National Electoral Committee), www.vvk.ee
-Written in 2004-2013 by Cybernetica AS, www.cyber.ee
+Written in 2004-2014 by Cybernetica AS, www.cyber.ee
 
 This work is licensed under the Creative Commons
 Attribution-NonCommercial-NoDerivs 3.0 Unported License.
@@ -62,6 +62,7 @@ if not evcommon.testrun():
                 if election.Election().allow_new_voters():
                     result = mid.init_auth(phoneno)
                 else:
+                    evlog.log_error('nonewvoters')
                     a, b = protocol.plain_error_election_off_after()
                     result = protocol.msg_error(a, b)
             else:

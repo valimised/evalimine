@@ -15,8 +15,10 @@ SUDOERS_DIR=etc/sudoers.d
 BIN_DIR=usr/bin
 LIB_DIR=usr/lib
 SHARE_DIR=usr/share/evote
+DOC_DIR=usr/share/doc
 WWW_DIR=var/www/evote
 PACKAGE_DIR=usr/lib/python2.7/dist-packages
+LINTIAN_DIR=usr/share/lintian/overrides
 
 ETC_SSL_DIR=$(ETC_DIR)/ssl
 
@@ -66,17 +68,17 @@ install-indep:
 	dh_installdirs -i
 
 	# evote-hts
-	install -m 644 debian/evote-hts.lintian $(HTS_DIR)/usr/share/lintian/overrides/evote-hts
-	install -m 644 debian/copyright $(HTS_DIR)/usr/share/doc/evote-hts/copyright
+	install -m 644 debian/evote-hts.lintian $(HTS_DIR)/$(LINTIAN_DIR)/evote-hts
+	install -m 644 debian/copyright $(HTS_DIR)/$(DOC_DIR)/evote-hts/copyright
 
 	install -m 644 common/revocationlists.py $(HTS_DIR)/$(PACKAGE_DIR)
 	install -m 755 hts/htsalldisp.py $(HTS_DIR)/$(PACKAGE_DIR)
 	install -m 755 hts/htsall.py $(HTS_DIR)/$(PACKAGE_DIR)
 	install -m 755 hts/htsbase.py $(HTS_DIR)/$(PACKAGE_DIR)
 	install -m 755 hts/htscommon.py $(HTS_DIR)/$(PACKAGE_DIR)
-	install -m 755 hts/htsdisp.py $(HTS_DIR)/$(PACKAGE_DIR)
+	install -m 644 hts/htsdisp.py $(HTS_DIR)/$(PACKAGE_DIR)
+	install -m 755 hts/load_rev_files.py $(HTS_DIR)/$(PACKAGE_DIR)
 	install -m 755 hts/hts.py $(HTS_DIR)/$(PACKAGE_DIR)
-	install -m 755 hts/htsrevoke.py $(HTS_DIR)/$(PACKAGE_DIR)
 	install -m 755 hts/htsstatus.py $(HTS_DIR)/$(PACKAGE_DIR)
 
 	install -m 755 hts/ocsp_checker.py $(HTS_DIR)/$(SHARE_DIR)
@@ -85,6 +87,7 @@ install-indep:
 	install -m 755 cgi/hts-verify-vote-cgi.py $(HTS_DIR)/$(SHARE_DIR)/hts-verify-vote.cgi
 	install -m 644 etc/hts-apache.conf $(HTS_DIR)/$(ETC_DIR)
 	install -m 644 etc/hts-syslog.conf $(HTS_DIR)/$(ETC_DIR)
+	install -m 0440 etc/hts-sudo $(HTS_DIR)/$(SUDOERS_DIR)
 
 	install -m 755 common/monitoring.py $(HTS_DIR)/$(SHARE_DIR)/hts_monitor.py
 	install -m 755 common/apply_changes.py $(HTS_DIR)/$(BIN_DIR)
@@ -94,8 +97,8 @@ install-indep:
 	# evote-hes
 	mkdir $(HES_DIR)/$(WWW_DIR)/data
 
-	install -m 644 debian/evote-hes.lintian $(HES_DIR)/usr/share/lintian/overrides/evote-hes
-	install -m 644 debian/copyright $(HES_DIR)/usr/share/doc/evote-hes/copyright
+	install -m 644 debian/evote-hes.lintian $(HES_DIR)/$(LINTIAN_DIR)/evote-hes
+	install -m 644 debian/copyright $(HES_DIR)/$(DOC_DIR)/evote-hes/copyright
 
 	install -m 644 hes/hes.py $(HES_DIR)/$(PACKAGE_DIR)
 	install -m 644 hes/birthday.py $(HES_DIR)/$(PACKAGE_DIR)
@@ -121,11 +124,15 @@ install-indep:
 	install -m 755 common/show_voters_files_history.py $(HES_DIR)/$(BIN_DIR)
 
 	# prepare
+	install -m 644 debian/evote-prepare.lintian $(PREPARE_DIR)/$(LINTIAN_DIR)/evote-prepare
 	install -m 755 common/check_inputlists.py $(PREPARE_DIR)/$(BIN_DIR)
+	install -m 755 common/check_bdocconf.py $(PREPARE_DIR)/$(BIN_DIR)
+	install -m 644 pybdoc/python/bdocconfig.py $(PREPARE_DIR)/$(PACKAGE_DIR)
 	install -m 644 common/evcommon.py $(PREPARE_DIR)/$(PACKAGE_DIR)
 	install -m 644 common/formatutil.py $(PREPARE_DIR)/$(PACKAGE_DIR)
 	install -m 644 common/inputlists.py $(PREPARE_DIR)/$(PACKAGE_DIR)
 	install -m 644 common/ticker.py $(PREPARE_DIR)/$(PACKAGE_DIR)
+	install -m 644 debian/copyright $(PREPARE_DIR)/$(DOC_DIR)/evote-prepare/copyright
 
 	dh_install -i
 
@@ -138,9 +145,10 @@ install-arch:
 
 	# evote-common
 
-	install -m 644 debian/evote-common.lintian $(COMMON_DIR)/usr/share/lintian/overrides/evote-common
-	install -m 644 debian/copyright $(COMMON_DIR)/usr/share/doc/evote-common/copyright
+	install -m 644 debian/evote-common.lintian $(COMMON_DIR)/$(LINTIAN_DIR)/evote-common
+	install -m 644 debian/copyright $(COMMON_DIR)/$(DOC_DIR)/evote-common/copyright
 
+	install -m 644 etc/nobackup $(COMMON_DIR)/$(ETC_DIR)
 	install -m 644 debian/default $(COMMON_DIR)/etc/default/evote
 	install -m 644 common/election.py $(COMMON_DIR)/$(PACKAGE_DIR)
 	install -m 644 common/evcommon.py $(COMMON_DIR)/$(PACKAGE_DIR)
@@ -159,6 +167,7 @@ install-arch:
 	install -m 644 common/sessionid.py $(COMMON_DIR)/$(PACKAGE_DIR)
 	install -m 644 common/singleton.py $(COMMON_DIR)/$(PACKAGE_DIR)
 	install -m 644 common/ticker.py $(COMMON_DIR)/$(PACKAGE_DIR)
+	install -m 644 common/autocmd.py $(COMMON_DIR)/$(PACKAGE_DIR)
 
 	install -m 644 cgi/cgilog.py $(COMMON_DIR)/$(PACKAGE_DIR)
 	install -m 644 cgi/cgivalidator.py $(COMMON_DIR)/$(PACKAGE_DIR)
@@ -167,6 +176,7 @@ install-arch:
 	chrpath -d pybdoc/python/.libs/_bdocpython.so
 	install -m 644 pybdoc/python/.libs/_bdocpython.so $(COMMON_DIR)/$(PACKAGE_DIR)
 	install -m 644 pybdoc/python/bdocpythonutils.py $(COMMON_DIR)/$(PACKAGE_DIR)
+	install -m 644 pybdoc/python/bdocconfig.py $(COMMON_DIR)/$(PACKAGE_DIR)
 	install -m 644 pybdoc/src/.libs/libbdoc.so.0 $(COMMON_DIR)/$(LIB_DIR)
 
 	install -m 755 common/installer.py $(COMMON_DIR)/$(BIN_DIR)
@@ -175,6 +185,8 @@ install-arch:
 	install -m 755 common/config_bdoc.py $(COMMON_DIR)/$(BIN_DIR)
 
 	install -m 755 evui/evote_ui.sh $(COMMON_DIR)/$(SHARE_DIR)/evote_ui
+	install -m 755 evui/evote_backup_snapshot.sh \
+		$(COMMON_DIR)/$(SHARE_DIR)/evote_backup_snapshot
 	install -m 644 evui/burner.py $(COMMON_DIR)/$(PACKAGE_DIR)
 	install -m 644 evui/evui.py $(COMMON_DIR)/$(SHARE_DIR)
 	install -m 644 evui/uiutil.py $(COMMON_DIR)/$(PACKAGE_DIR)
@@ -184,11 +196,13 @@ install-arch:
 	echo "dvd -fstype=iso9660,ro,sync,nodev,nosuid :/dev/dvd" > $(COMMON_DIR)/etc/auto.evote
 
 	# evote-hlr
-	install -m 644 debian/evote-hlr.lintian $(HLR_DIR)/usr/share/lintian/overrides/evote-hlr
-	install -m 644 debian/copyright $(HLR_DIR)/usr/share/doc/evote-hlr/copyright
+	install -m 644 debian/evote-hlr.lintian $(HLR_DIR)/$(LINTIAN_DIR)/evote-hlr
+	install -m 644 debian/copyright $(HLR_DIR)/$(DOC_DIR)/evote-hlr/copyright
+	install -m 644 hlr/README $(HLR_DIR)/$(DOC_DIR)/evote-hlr/README
 
 	install -m 755 common/replace_candidates.py $(HLR_DIR)/$(BIN_DIR)
 	install -m 755 hlr/threaded_decrypt $(HLR_DIR)/$(BIN_DIR)
+	install -m 755 hlr/sign_data $(HLR_DIR)/$(BIN_DIR)
 	install -m 755 hlr/hlr.py $(HLR_DIR)/$(SHARE_DIR)
 	install -m 755 common/config_hsm.py $(HLR_DIR)/$(BIN_DIR)
 	install -m 755 common/config_hlr_input.py $(HLR_DIR)/$(BIN_DIR)

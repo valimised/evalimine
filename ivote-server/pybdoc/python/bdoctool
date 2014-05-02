@@ -1,0 +1,16 @@
+#!/bin/sh
+
+! [ -z "$2" ] || echo "bdoctool off|online|tm file.bdoc"
+set -e
+BDOC="$(readlink -f "$2")"
+CONTENT_TYPE="application/octet-stream"
+if ! [ -z "$3" ]; then
+	CONTENT_TYPE="$3"
+fi
+cd "$(dirname "$0")"
+mkdir -p .libs
+cp bdoctesttool.py .libs
+PYTHONPATH="`pwd`:`pwd`/../../common"
+export PYTHONPATH
+cd .libs
+python bdoctesttool.py "$1" "$BDOC" "$CONTENT_TYPE"

@@ -4,7 +4,7 @@
 """
 Copyright: Eesti Vabariigi Valimiskomisjon
 (Estonian National Electoral Committee), www.vvk.ee
-Written in 2004-2013 by Cybernetica AS, www.cyber.ee
+Written in 2004-2014 by Cybernetica AS, www.cyber.ee
 
 This work is licensed under the Creative Commons
 Attribution-NonCommercial-NoDerivs 3.0 Unported License.
@@ -15,7 +15,7 @@ http://creativecommons.org/licenses/by-nc-nd/3.0/.
 import sys
 from election import Election
 from election import ElectionState
-from evlog import AppLog
+import evlog
 import ksum
 import inputlists
 import time
@@ -26,7 +26,6 @@ import evcommon
 class BufferedLog:
 
     def __init__(self, log_file, app, elid):
-        import evlog
         self.__logger = evlog.Logger(Election().get_server_str())
         self.__logger.set_logs(log_file)
         self.__buffer = []
@@ -113,18 +112,18 @@ def apply_changes(elid, voter_f):
         vl = inputlists.VotersList(root, reg, ed)
         vl.attach_elid(elid)
         vl.ignore_errors()
-        AppLog().set_app('APPLY-CHANGES')
-        vl.attach_logger(AppLog())
+        evlog.AppLog().set_app('APPLY-CHANGES')
+        vl.attach_logger(evlog.AppLog())
 
         print "Kontrollin valijate faili kontrollsummat"
         if not ksum.check(voter_f):
             raise Exception('Valijate faili kontrollsumma ei klapi\n')
 
-        voters_file_sha1 = ksum.compute(voter_f)
+        voters_file_sha256 = ksum.compute(voter_f)
         if Election().get_root_reg().check(\
-            ['common', 'voters_file_hashes', voters_file_sha1]):
+            ['common', 'voters_file_hashes', voters_file_sha256]):
             raise Exception('Kontrollsummaga %s fail on juba laetud\n' \
-                % voters_file_sha1)
+                % voters_file_sha256)
 
         if not vl.check_format(voter_f, 'Kontrollin valijate nimekirja: '):
             print "Valijate nimekiri ei vasta vormingunõuetele"

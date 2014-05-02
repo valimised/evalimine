@@ -3,7 +3,7 @@
  * (Estonian National Electoral Committee), www.vvk.ee
  * Derived work from libdicidocpp library
  * https://svn.eesti.ee/projektid/idkaart_public/trunk/libdigidocpp/
- * Written in 2011-2013 by Cybernetica AS, www.cyber.ee
+ * Written in 2011-2014 by Cybernetica AS, www.cyber.ee
  *
  * This work is licensed under the Creative Commons
  * Attribution-NonCommercial-NoDerivs 3.0 Unported License.
@@ -16,6 +16,7 @@
 #include "crypto/X509CertStore.h"
 #include "crypto/Digest.h"
 #include "DateTime.h"
+#include "xml/xades-signatures.hxx"
 #include "xml/xmldsig-core-schema.hxx"
 #include "xml/XAdES.hxx"
 #include <xercesc/dom/DOM.hpp>
@@ -24,21 +25,21 @@
 #include <xercesc/framework/MemBufInputSource.hpp>
 #include <xercesc/framework/StdOutFormatTarget.hpp>
 #include <xercesc/util/XMLString.hpp>
+#include <xsd/cxx/tree/error-handler.hxx>
+#include <xsd/cxx/xml/dom/parsing-source.hxx>
+#include <xsd/cxx/xml/sax/std-input-source.hxx>
 #include <xsec/dsig/DSIGConstants.hpp>
 #include <xsec/utils/XSECSafeBuffer.hpp>
 #include "BDoc.h"
 #include "StackException.h"
 #include "XMLHelper.h"
 
-const std::string bdoc::XAdES111Signature::XADES111_NAMESPACE =
-					"http://uri.etsi.org/01903/v1.1.1#";
-
-const std::string bdoc::XAdES132Signature::XADES132_NAMESPACE =
-					"http://uri.etsi.org/01903/v1.3.2#";
-
-const std::string bdoc::Signature::DSIG_NAMESPACE =
-					"http://www.w3.org/2000/09/xmldsig#";
-
+static const unsigned char PREFIX_SHA256[] = {
+	0x30, 0x31, 0x30, 0x0d,
+	0x06, 0x09, 0x60, 0x86, 0x48, 0x01, 0x65,
+	0x03, 0x04, 0x02, 0x01, 0x05, 0x00,
+	0x04, 0x20
+};
 
 std::string serializeDOM(xercesc::DOMNode* node) {
 
@@ -122,17 +123,38 @@ bdoc::OCSP* bdoc::SignatureValidator::prepare()
 	return ocsp;
 }
 
+
+void bdoc::SignatureValidator::validateBESOffline()
+{
+	_sig->validateSignature();
+	_sig->validateCertificate(_conf->getCertStore());
+}
+
+
 bdoc::OCSP::CertStatus bdoc::SignatureValidator::validateBESOnline()
 {
+	_sig->validateSignature();
+
 	std::auto_ptr<OCSP> ocsp(prepare());
 	std::auto_ptr<Digest> sigCalc = Digest::create(_conf->getDigestURI());
 	sigCalc->update(_sig->getSignatureValue());
 
-	return ocsp->checkCert(_signingCert.getX509(),
+	std::vector<unsigned char> nonce;
+	for (unsigned int i = 0; i < sizeof PREFIX_SHA256; i++) {
+		nonce.push_back(PREFIX_SHA256[i]);
+	}
+
+	std::vector<unsigned char> dig = sigCalc->getDigest();
+	nonce.insert(nonce.end(), dig.begin(), dig.end());
+
+	bdoc::OCSP::CertStatus ret = ocsp->checkCert(_signingCert.getX509(),
 				_issuerX509,
-				sigCalc->getDigest(),
+				nonce,
 				_ocspResponse,
 				_producedAt);
+
+	_sig->validateCertificate(_conf->getCertStore(), &_producedAt);
+	return ret;
 }
 
 std::string bdoc::SignatureValidator::getTMSignature()
@@ -151,14 +173,17 @@ std::string bdoc::SignatureValidator::getTMSignature()
 	std::auto_ptr<xercesc::DOMDocument> doc = _sig->createDom();
 	xercesc::DOMNodeList *nl =
 		doc->getElementsByTagNameNS(
-			xercesc::XMLString::transcode("*"),
+			xercesc::XMLString::transcode(XADES132_NAMESPACE),
 			xercesc::XMLString::transcode("UnsignedProperties"));
 
 	xercesc::DOMNode *unsignedprops = nl->item(0);
 	xercesc::DOMNode *unsignedsignatureprops =
-		doc->createElement(
+		doc->createElementNS(
 			xercesc::XMLString::transcode(
-					"UnsignedSignatureProperties"));
+					XADES132_NAMESPACE),
+			xercesc::XMLString::transcode(
+					"xades:UnsignedSignatureProperties")
+			);
 
 	unsignedprops->appendChild(unsignedsignatureprops);
 
@@ -175,43 +200,6 @@ std::string bdoc::SignatureValidator::getTMSignature()
 					resp);
 	}
 
-	{
-		X509* ocspIssuerCert =
-			_conf->getCertStore()->getCert(
-					*(ocspCert.getIssuerNameAsn1()));
-
-		X509_scope ocspIssuerCertScope(&ocspIssuerCert);
-		if (ocspIssuerCert == NULL) {
-			THROW_STACK_EXCEPTION(
-				"Failed to load issuer certificate.");
-		}
-
-		X509Cert oic(ocspIssuerCert);
-		std::vector<unsigned char> der = oic.encodeDER();
-		std::string oicmeth(_conf->getDigestURI());
-		std::auto_ptr<bdoc::Digest> oicCalc =
-					bdoc::Digest::create(oicmeth);
-		oicCalc->update(der);
-		xml_schema::Base64Binary oicDig(&oicCalc->getDigest()[0],
-						oicCalc->getSize());
-
-		addXMLCompleteCertificateRefs(doc.get(),
-						unsignedsignatureprops,
-						oic, oicDig, oicmeth);
-	}
-
-	{
-		xml_schema::Base64Binary oh(&ocspResponseHash[0],
-						ocspResponseHash.size());
-
-		addXMLCompleteRevocationRefs(
-				doc.get(), unsignedsignatureprops,
-				ocspCert, oh, ocspResponseCalc->getUri(),
-				bdoc::util::date::xsd2string(
-					bdoc::util::date::
-						makeDateTime(_producedAt)));
-	}
-
 	xercesc::DOMElement* root (doc->getDocumentElement ());
 	ret = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n";
 	ret += serializeDOM(root);
@@ -223,20 +211,29 @@ void bdoc::SignatureValidator::validateTMOffline()
 
 //	   1. Check OCSP response (RevocationValues) was signed by OCSP server
 //	   2. OCSP server certificate is trusted?
-//	   3. Check that nonce field in OCSP response is same as
-//					CompleteRevocationRefs->DigestValue
-//	   4. Recalculate hash of signature and compare with nonce
+//	   3. Recalculate hash of signature and compare with nonce
+
+	_sig->validateSignature();
 
 	std::auto_ptr<OCSP> ocsp(prepare());
 
 	_sig->getOCSPResponseValue(_ocspResponse);
-	ocsp->verifyResponse(_ocspResponse);
+	ocsp->verifyResponse(_ocspResponse, _producedAt);
 
 	std::vector<unsigned char> respNonce = ocsp->getNonce(_ocspResponse);
 
-	xml_schema::Uri method = _sig->ocspDigestAlgorithm();
+	if (respNonce.size() == sizeof PREFIX_SHA256 + 32 &&
+		!memcmp(&respNonce[0], PREFIX_SHA256, sizeof PREFIX_SHA256)) {
+		respNonce.erase(respNonce.begin(),
+						respNonce.begin() + sizeof PREFIX_SHA256);
+	} else if (respNonce.size() == 32) {
+		// Test responder
+	} else {
+		THROW_STACK_EXCEPTION("Unknown ocsp digest algorithm (length %d)",
+							  respNonce.size());
+	}
 
-	std::auto_ptr<Digest> calc = Digest::create(std::string(method));
+	std::auto_ptr<Digest> calc = Digest::create(std::string(URI_SHA256));
 	calc->update(_sig->getSignatureValue());
 	std::vector<unsigned char> nonce = calc->getDigest();
 
@@ -246,100 +243,145 @@ void bdoc::SignatureValidator::validateTMOffline()
 			"responder nonce field");
 	}
 
-	std::vector<unsigned char> revocationOCSPRefValue(0);
-	std::string ocspResponseHashUri;
-	_sig->getRevocationOCSPRef(revocationOCSPRefValue,
-					ocspResponseHashUri);
+	_sig->validateCertificate(_conf->getCertStore(), &_producedAt);
 
-	std::auto_ptr<Digest> ocspResponseCalc =
-					Digest::create(ocspResponseHashUri);
+}
 
-	ocspResponseCalc->update(_ocspResponse);
-	std::vector<unsigned char> ocspResponseHash =
-					ocspResponseCalc->getDigest();
+/*
+ * Class Signatures
+ */
 
-	if (ocspResponseHash != revocationOCSPRefValue) {
-		THROW_STACK_EXCEPTION(
-			"OCSPRef value doesn't match with hash of OCSP "
-			"response");
+bdoc::Signatures::Signatures()
+{
+}
+
+bdoc::Signatures::~Signatures()
+{
+	for (unsigned i = 0; i < v.size(); ++i) {
+		delete v[i];
 	}
 }
 
+static bool equals(const XMLCh *xml_str, const char* str)
+{
+	while (*xml_str && (unsigned) *xml_str == (unsigned char) *str) {
+		++xml_str;
+		++str;
+	}
+	return !*xml_str && !*str;
+}
+
+void bdoc::Signatures::parse(const std::string& schema_dir,
+							 const std::string& xml,
+							 ContainerInfo *ci)
+{
+	try {
+		// parse to DOM
+		xml_schema::Properties properties;
+		Signature::init_properties(properties, schema_dir);
+		::xsd::cxx::tree::error_handler<char> err_handler;
+		xml_schema::Flags flags = xml_schema::Flags::dont_initialize;
+		std::istringstream input(xml);
+		::xsd::cxx::xml::sax::std_input_source source(input);
+		std::auto_ptr< ::xercesc::DOMDocument>
+			dom(::xsd::cxx::xml::dom::parse<char>(source, err_handler,
+												  properties, flags).release());
+		err_handler.throw_if_failed< ::xsd::cxx::tree::parsing<char> >();
+
+		// check whether it contains the xades wrapper element
+		::xercesc::DOMElement *root = dom->getDocumentElement();
+		if (equals(root->getLocalName(), "XAdESSignatures")) {
+			std::auto_ptr<asic::XAdESSignaturesType>
+				signatures(asic::xAdESSignatures(*dom, flags, properties));
+			const asic::XAdESSignaturesType::SignatureSequence &seq =
+				signatures->signature();
+			asic::XAdESSignaturesType::SignatureConstIterator i(seq.begin());
+			for (; i != seq.end(); ++i) {
+				std::auto_ptr<dsig::SignatureType>
+					signature(new dsig::SignatureType(*i));
+				v.push_back(Signature::prepare(signature, xml, ci));
+			}
+		} else {
+			std::auto_ptr<dsig::SignatureType>
+				signature(dsig::signature(*dom, flags, properties));
+			v.push_back(Signature::prepare(signature, xml, ci));
+		}
+	}
+	catch (const xml_schema::Parsing& e) {
+		std::ostringstream oss;
+		oss << e;
+		THROW_STACK_EXCEPTION("Failed to parse signature XML: %s",
+							  oss.str().c_str());
+	}
+	catch (const xsd::cxx::exception& e) {
+		THROW_STACK_EXCEPTION("Failed to parse signature XML: %s", e.what());
+	}
+}
 
 /*
  *
  * Class Signature
  *
- * */
+ */
+void bdoc::Signature::init_properties(xml_schema::Properties &properties,
+							const std::string& schema_dir)
+{
+	properties.schema_location(XADES132_NAMESPACE,
+							   schema_dir + "/XAdES.xsd");
+	properties.schema_location(DSIG_NAMESPACE,
+							   schema_dir + "/xmldsig-core-schema.xsd");
+	properties.schema_location(ASIC_NAMESPACE,
+							   schema_dir + "/xades-signatures.xsd");
+}
+
+bdoc::Signature*
+bdoc::Signature::prepare(std::auto_ptr<dsig::SignatureType>& sig,
+						 const std::string& xml, ContainerInfo *ci)
+{
+	dsig::SignatureType::ObjectSequence& os = sig->object();
+	if (os.empty()) {
+		THROW_STACK_EXCEPTION("Signature block 'Object' is missing.");
+	}
+	else if (os.size() != 1) {
+		THROW_STACK_EXCEPTION(
+			"Signature block contains more than one "
+			"'Object' block.");
+	}
+	dsig::ObjectType& o = os[0];
+
+	dsig::ObjectType::QualifyingPropertiesSequence& qpSeq = o.qualifyingProperties();
+
+	if (qpSeq.empty()) {
+		THROW_STACK_EXCEPTION("Signature block 'QualifyingProperties' is missing.");
+	}
+
+	if (qpSeq.size() != 1) {
+		THROW_STACK_EXCEPTION(
+			"Signature block 'Object' contains more than one "
+			"'QualifyingProperties' block.");
+	}
+	return new XAdES132Signature(sig.release(), xml, ci);
+
+	THROW_STACK_EXCEPTION("Signature block 'Object' contains more than one 'QualifyingProperties' block.");
+}
 
 bdoc::Signature* bdoc::Signature::parse(const std::string& schema_dir,
 					const char *xml_buf, size_t buf_len, ContainerInfo *ci)
 {
-	try {
-		xml_schema::Properties properties;
-		properties.schema_location(bdoc::XAdES111Signature::XADES111_NAMESPACE, schema_dir + "/XAdES111.xsd");
-		properties.schema_location(bdoc::XAdES132Signature::XADES132_NAMESPACE, schema_dir + "/XAdES.xsd");
-		properties.schema_location(DSIG_NAMESPACE, schema_dir + "/xmldsig-core-schema.xsd");
-		std::istringstream input(std::string(xml_buf, buf_len));
-		xml_schema::Flags flags = xml_schema::Flags::dont_initialize;
-		std::auto_ptr<dsig::SignatureType> sig(dsig::signature(input, flags, properties).release());
-
-		dsig::SignatureType::ObjectSequence& os = sig->object();
-		if (os.empty()) {
-			THROW_STACK_EXCEPTION("Signature block 'Object' is missing.");
-		}
-		else if (os.size() != 1) {
-			THROW_STACK_EXCEPTION(
-				"Signature block contains more than one "
-				"'Object' block.");
-		}
-		dsig::ObjectType& o = os[0];
-
-		dsig::ObjectType::QualifyingPropertiesSequence& qpSeq = o.qualifyingProperties();
-		dsig::ObjectType::QualifyingProperties1Sequence& qp1Seq = o.qualifyingProperties1();
-
-		if (qpSeq.empty() && qp1Seq.empty()) {
-			THROW_STACK_EXCEPTION("Signature block 'QualifyingProperties' is missing.");
-		}
-
-		if (qpSeq.empty() && (!qp1Seq.empty())) {
-			if (qp1Seq.size() != 1) {
-				THROW_STACK_EXCEPTION(
-					"Signature block 'Object' contains more than one "
-					"'QualifyingProperties' block.");
-			}
-			return new XAdES111Signature(sig.release(), xml_buf, buf_len, ci);
-		}
-
-		if ((!qpSeq.empty()) && qp1Seq.empty()) {
-			if (qpSeq.size() != 1) {
-				THROW_STACK_EXCEPTION(
-					"Signature block 'Object' contains more than one "
-					"'QualifyingProperties' block.");
-			}
-			return new XAdES132Signature(sig.release(), xml_buf, buf_len, ci);
-		}
-
-		THROW_STACK_EXCEPTION("Signature block 'Object' contains more than one 'QualifyingProperties' block.");
+	std::string buf(xml_buf, buf_len);
+	Signatures signatures;
+	signatures.parse(schema_dir, buf, ci);
+	if (signatures.v.size() != 1) {
+		THROW_STACK_EXCEPTION("Failed to parse signature XML: "
+			"signature count %d is not 1", signatures.v.size());
 	}
-	catch (const xml_schema::Parsing& e) {
-		std::ostringstream oss;
-		oss << e;
-		THROW_STACK_EXCEPTION(
-			"Failed to parse signature XML: %s",
-			oss.str().c_str());
-	}
-	catch (const xsd::cxx::exception& e) {
-		THROW_STACK_EXCEPTION(
-			"Failed to parse signature XML: %s", e.what());
-	}
+	bdoc::Signature *result = signatures.v[0];
+	signatures.v.clear(); // ensure that Signatures will not free the result
+	return result;
 }
 
-
-
-
-bdoc::Signature::Signature(dsig::SignatureType* signature, const char *xml, size_t xml_len, ContainerInfo *ci)
-	: _sign(signature), _xml(xml), _xml_len(xml_len), _bdoc(ci)
+bdoc::Signature::Signature(dsig::SignatureType* signature, const std::string &xml, ContainerInfo *ci)
+	: _sign(signature), _xml(xml), _bdoc(ci)
 {
 }
 
@@ -348,7 +390,7 @@ bdoc::Signature::~Signature()
 	delete _sign;
 }
 
-void bdoc::Signature::validateOffline(bdoc::X509CertStore *store)
+void bdoc::Signature::validateSignature()
 {
 	DECLARE_STACK_EXCEPTION("Signature is invalid");
 
@@ -369,8 +411,18 @@ void bdoc::Signature::validateOffline(bdoc::X509CertStore *store)
 		exc.add(e);
 	}
 
+	if (exc.hasCauses()) {
+		throw exc;
+	}
+}
+
+void bdoc::Signature::validateCertificate(bdoc::X509CertStore *store, 
+		struct tm *tm) const
+{
+	DECLARE_STACK_EXCEPTION("Certificate is invalid");
+
 	try {
-		checkSigningCertificate(store);
+		checkSigningCertificate(store, tm);
 	}
 	catch (StackExceptionBase& e) {
 		exc.add(e);
@@ -380,6 +432,33 @@ void bdoc::Signature::validateOffline(bdoc::X509CertStore *store)
 		throw exc;
 	}
 }
+
+
+void bdoc::Signature::checkSigningCertificate(bdoc::X509CertStore *store, 
+		struct tm *tm) const
+{
+	X509Cert signingCert = getSigningCertificate();
+
+	if (store == NULL) {
+		THROW_STACK_EXCEPTION(
+			"Unable to verify signing certificate %s",
+			signingCert.getSubject().c_str());
+	}
+	X509_STORE *st = NULL;
+	st = store->getCertStore();
+
+	bool res = signingCert.verify(st, tm);
+
+	X509_STORE_free(st);
+	st = NULL;
+	if (!res) {
+		THROW_STACK_EXCEPTION(
+			"Unable to verify signing certificate %s",
+			signingCert.getSubject().c_str());
+	}
+
+}
+
 
 std::string bdoc::Signature::getSubject() const
 {
@@ -502,7 +581,8 @@ std::auto_ptr<xercesc::DOMDocument> bdoc::Signature::createDom() const
 
 		parser->setDoNamespaces(true);
 
-		xercesc::MemBufInputSource memIS((const XMLByte*)_xml, _xml_len, "test", false);
+		xercesc::MemBufInputSource memIS((const XMLByte*)_xml.data(),
+										 _xml.length(), "test", false);
 
 		parser->parse(memIS);
 		xercesc::DOMNode* dom = parser->getDocument()->cloneNode(true);
@@ -668,31 +748,6 @@ void bdoc::Signature::checkReferences()
 	checkReferencesToDocs(refSeq);
 }
 
-void bdoc::Signature::checkSigningCertificate(bdoc::X509CertStore *store) const
-{
-	X509Cert signingCert = getSigningCertificate();
-
-	if (store == NULL) {
-		THROW_STACK_EXCEPTION(
-			"Unable to verify signing certificate %s",
-			signingCert.getSubject().c_str());
-	}
-	X509_STORE *st = NULL;
-	st = store->getCertStore();
-
-	int res = signingCert.verify(st);
-
-	X509_STORE_free(st);
-	st = NULL;
-
-	if (!res) {
-		THROW_STACK_EXCEPTION(
-			"Unable to verify signing certificate %s",
-			signingCert.getSubject().c_str());
-	}
-
-}
-
 bool bdoc::Signature::isReferenceToSigProps(
 	const bdoc::dsig::ReferenceType& refType) const
 {
@@ -802,7 +857,13 @@ void bdoc::Signature::checkReferencesToDocs(
 	}
 
 	if (!_bdoc->checkDocumentsResult()) {
-		THROW_STACK_EXCEPTION("Document references didn't match");
+		std::ostringstream buf;
+		ContainerInfo::errors_t::const_iterator i(_bdoc->errors.begin());
+		for (; i != _bdoc->errors.end(); ++i) {
+			buf << *i << ';';
+		}
+		THROW_STACK_EXCEPTION("Document references didn't match (%s)",
+							  buf.str().c_str());
 	}
 }
 
@@ -839,284 +900,6 @@ void bdoc::Signature::checkSignatureValue()
 
 /*
  *
- * XAdES111Signature
- *
- * */
-
-
-bdoc::XAdES111Signature::XAdES111Signature(
-					dsig::SignatureType* signature,
-					const char *xml, size_t xml_len,
-					bdoc::ContainerInfo *bdoc) : bdoc::Signature(signature, xml, xml_len, bdoc)
-{
-}
-
-bdoc::XAdES111Signature::~XAdES111Signature()
-{
-}
-
-const std::string& bdoc::XAdES111Signature::xadesnamespace()
-{
-	return XADES111_NAMESPACE;
-}
-
-bdoc::xades111::UnsignedPropertiesType::UnsignedSignaturePropertiesOptional&
-bdoc::XAdES111Signature::unsignSigProps() const
-{
-	if (!_sign->object()[0].qualifyingProperties1()[0].
-					unsignedProperties().present()) {
-		THROW_STACK_EXCEPTION("Missing UnsignedProperties");
-	}
-
-	return _sign->object()[0].qualifyingProperties1()[0].
-				unsignedProperties()->
-						unsignedSignatureProperties();
-}
-
-void bdoc::XAdES111Signature::getOCSPResponseValue(std::vector<unsigned char>& data) const
-{
-	if (!unsignSigProps().present()) {
-		THROW_STACK_EXCEPTION("Unsigned signature properties missing");
-	}
-
-	if (!unsignSigProps()->revocationValues().present()) {
-		THROW_STACK_EXCEPTION("Revocation values missing");
-	}
-
-	xades111::RevocationValuesType t = unsignSigProps()->revocationValues().get();
-
-	xades111::OCSPValuesType tt = t.oCSPValues().get();
-	xades111::OCSPValuesType::EncapsulatedOCSPValueType resp = tt.encapsulatedOCSPValue()[0];
-
-	data.resize(resp.size());
-	std::copy(resp.data(), resp.data()+resp.size(), data.begin());
-}
-
-std::string bdoc::XAdES111Signature::getProducedAt() const
-{
-	if (unsignSigProps().present()) {
-		const xades111::OCSPIdentifierType::ProducedAtType &producedAt =
-			unsignSigProps()->completeRevocationRefs().get().oCSPRefs()->oCSPRef()[0].oCSPIdentifier().producedAt();
-		return util::date::xsd2string(producedAt);
-	}
-	return "";
-}
-
-xml_schema::Uri bdoc::XAdES111Signature::ocspDigestAlgorithm() const
-{
-	return unsignSigProps()->
-			completeRevocationRefs().get().oCSPRefs()->
-				oCSPRef()[0].digestAlgAndValue()->
-					digestMethod().algorithm();
-}
-
-
-void bdoc::XAdES111Signature::getRevocationOCSPRef(
-	std::vector<unsigned char>& data, std::string& digestMethodUri) const
-{
-	xades111::UnsignedSignaturePropertiesType::CompleteRevocationRefsOptional&
-		crrSeq = unsignSigProps()->completeRevocationRefs();
-
-	if (crrSeq.present()) {
-		xades111::CompleteRevocationRefsType::OCSPRefsOptional
-					ocspRefsOpt = crrSeq.get().oCSPRefs();
-		if (ocspRefsOpt.present()) {
-			xades111::OCSPRefsType::OCSPRefSequence
-					ocspRefSeq = ocspRefsOpt->oCSPRef();
-
-			if (!ocspRefSeq.empty()) {
-				xades111::OCSPRefType::DigestAlgAndValueOptional
-				digestOpt = ocspRefSeq[0].digestAlgAndValue();
-
-				if (digestOpt.present()) {
-					dsig::DigestValueType
-						digestValue = digestOpt->
-								digestValue();
-
-					data.resize(digestValue.size());
-					std::copy(digestValue.data(),
-						digestValue.data() +
-						digestValue.size(),
-						data.begin());
-
-					xml_schema::Uri uri =
-						digestOpt->digestMethod().
-								algorithm();
-					digestMethodUri = uri;
-
-					return;
-				}
-			}
-		}
-	}
-
-	THROW_STACK_EXCEPTION(
-		"Missing UnsignedProperties/UnsignedSignatureProperties/Comple"
-		"teRevocationRefs/OCSPRefs/OCSPRef/DigestAlgAndValue element");
-}
-
-void bdoc::XAdES111Signature::checkKeyInfo() const
-{
-	X509Cert x509 = getSigningCertificate();
-
-	dsig::SignatureType::ObjectSequence const& objs = _sign->object();
-
-	if (objs.size() != 1) {
-		THROW_STACK_EXCEPTION(
-			"Number of Objects is %d, must be 1", objs.size());
-	}
-
-	dsig::ObjectType::QualifyingProperties1Sequence const&
-		qProps = objs[0].qualifyingProperties1();
-
-	if (qProps.size() != 1) {
-		THROW_STACK_EXCEPTION(
-			"Number of QualifyingProperties is %d, must be 1",
-			qProps.size());
-	}
-
-	xades111::QualifyingPropertiesType::SignedPropertiesOptional const&
-		sigProps = qProps[0].signedProperties();
-
-	if (!sigProps.present()) {
-		THROW_STACK_EXCEPTION("SignedProperties not found");
-	}
-
-	xades111::CertIDListType::CertSequence const& certs =
-			sigProps->signedSignatureProperties().
-							signingCertificate().cert();
-
-	if (certs.size() != 1) {
-		THROW_STACK_EXCEPTION(
-			"Number of SigningCertificates is %d, must be 1",
-			certs.size());
-	}
-
-	dsig::DigestMethodType::AlgorithmType const&
-		certDigestMethodAlgorithm =
-			certs[0].certDigest().digestMethod().algorithm();
-
-	if (!Digest::isSupported(certDigestMethodAlgorithm)) {
-		THROW_STACK_EXCEPTION(
-			"Unsupported digest algorithm  %s for signing "
-			"certificate", certDigestMethodAlgorithm.c_str());
-	}
-
-	dsig::X509IssuerSerialType::X509IssuerNameType
-		certIssuerName = certs[0].issuerSerial().x509IssuerName();
-
-	dsig::X509IssuerSerialType::X509SerialNumberType
-		certSerialNumber = certs[0].issuerSerial().x509SerialNumber();
-
-	if (x509.compareIssuerToString(certIssuerName) ||
-		x509.getSerial() != certSerialNumber) {
-		THROW_STACK_EXCEPTION(
-			"Signing certificate issuer information invalid");
-	}
-
-	xades111::DigestAlgAndValueType::DigestValueType const&
-		certDigestValue = certs[0].certDigest().digestValue();
-
-	std::auto_ptr<Digest> certDigestCalc =
-		Digest::create(certDigestMethodAlgorithm);
-
-	std::vector<unsigned char> derEncodedX509 = x509.encodeDER();
-	certDigestCalc->update(&derEncodedX509[0], derEncodedX509.size());
-	std::vector<unsigned char> calcDigest = certDigestCalc->getDigest();
-
-	if (certDigestValue.size() != (certDigestCalc->getSize())) {
-		THROW_STACK_EXCEPTION(
-			"Wrong length for signing certificate digest");
-	}
-
-	for (size_t i = 0; i < certDigestCalc->getSize(); ++i) {
-		if (calcDigest[i] != static_cast<unsigned char>
-				(certDigestValue.data()[i])) {
-			THROW_STACK_EXCEPTION(
-				"Signing certificate digest does not match");
-		}
-	}
-}
-
-void bdoc::XAdES111Signature::checkSignedSignatureProperties() const
-{
-	dsig::SignatureType::ObjectSequence& os = _sign->object();
-	if (os.empty()) {
-		THROW_STACK_EXCEPTION("Signature block 'Object' is missing.");
-	}
-	else if (os.size() != 1) {
-		THROW_STACK_EXCEPTION(
-			"Signature block contains more than one "
-			"'Object' block.");
-	}
-	dsig::ObjectType& o = os[0];
-
-	dsig::ObjectType::QualifyingProperties1Sequence&
-		qpSeq = o.qualifyingProperties1();
-	if (qpSeq.empty()) {
-		THROW_STACK_EXCEPTION(
-			"Signature block 'QualifyingProperties' is missing.");
-	}
-	else if (qpSeq.size() != 1) {
-		THROW_STACK_EXCEPTION(
-			"Signature block 'Object' contains more than one "
-			"'QualifyingProperties' block.");
-	}
-	xades111::QualifyingPropertiesType& qp = qpSeq[0];
-
-	xades111::QualifyingPropertiesType::SignedPropertiesOptional&
-		signedPropsOptional = qp.signedProperties();
-
-	if (!signedPropsOptional.present()) {
-		THROW_STACK_EXCEPTION(
-			"QualifyingProperties block 'SignedProperties' "
-			"is missing.");
-	}
-	xades111::SignedPropertiesType& signedProps = qp.signedProperties().get();
-
-	xades111::SignedSignaturePropertiesType& signedSigProps =
-		signedProps.signedSignatureProperties();
-
-	xades111::SignedSignaturePropertiesType::
-		SignaturePolicyIdentifierType
-			policyOpt = signedSigProps.signaturePolicyIdentifier();
-}
-
-
-void bdoc::XAdES111Signature::checkQualifyingProperties() const
-{
-	dsig::ObjectType::QualifyingProperties1Sequence const&
-		qProps = _sign->object()[0].qualifyingProperties1();
-
-	if (qProps.size() != 1) {
-		THROW_STACK_EXCEPTION(
-			"Number of QualifyingProperties is %d, must be 1",
-			qProps.size());
-	}
-
-	if (qProps[0].target() != "#" + _sign->id().get()) {
-		THROW_STACK_EXCEPTION(
-			"QualifyingProperties target is not Signature");
-	}
-
-	checkSignedSignatureProperties();
-
-	if (qProps[0].unsignedProperties().present()) {
-		xades111::QualifyingPropertiesType::UnsignedPropertiesType
-			uProps = qProps[0].unsignedProperties().get();
-		if (uProps.unsignedDataObjectProperties().present()) {
-			THROW_STACK_EXCEPTION(
-				"unexpected UnsignedDataObjectProperties in "
-				"Signature");
-		}
-	}
-}
-
-
-
-
-/*
- *
  * XAdES132Signature
  *
  * */
@@ -1124,8 +907,8 @@ void bdoc::XAdES111Signature::checkQualifyingProperties() const
 
 bdoc::XAdES132Signature::XAdES132Signature(
 					dsig::SignatureType* signature,
-					const char *xml, size_t xml_len,
-					bdoc::ContainerInfo *bdoc) : bdoc::Signature(signature, xml, xml_len, bdoc)
+					const std::string& xml,
+					bdoc::ContainerInfo *bdoc) : bdoc::Signature(signature, xml, bdoc)
 {
 }
 
@@ -1133,7 +916,7 @@ bdoc::XAdES132Signature::~XAdES132Signature()
 {
 }
 
-const std::string& bdoc::XAdES132Signature::xadesnamespace()
+const std::string bdoc::XAdES132Signature::xadesnamespace()
 {
 	return XADES132_NAMESPACE;
 }
@@ -1149,6 +932,19 @@ bdoc::XAdES132Signature::unsignSigProps() const
 	return _sign->object()[0].qualifyingProperties()[0].
 				unsignedProperties()->
 						unsignedSignatureProperties();
+}
+
+bool bdoc::XAdES132Signature::hasOCSPResponseValue() const
+{
+	if (!unsignSigProps().present()) {
+		return false;
+	}
+
+	if (unsignSigProps()->revocationValues().empty()) {
+		return false;
+	}
+
+	return true;
 }
 
 void bdoc::XAdES132Signature::getOCSPResponseValue(std::vector<unsigned char>& data) const
@@ -1168,69 +964,6 @@ void bdoc::XAdES132Signature::getOCSPResponseValue(std::vector<unsigned char>& d
 
 	data.resize(resp.size());
 	std::copy(resp.data(), resp.data()+resp.size(), data.begin());
-}
-
-std::string bdoc::XAdES132Signature::getProducedAt() const
-{
-	if (unsignSigProps().present()) {
-		const xades132::OCSPIdentifierType::ProducedAtType &producedAt =
-			unsignSigProps()->completeRevocationRefs()[0].oCSPRefs()->oCSPRef()[0].oCSPIdentifier().producedAt();
-		return util::date::xsd2string(producedAt);
-	}
-	return "";
-}
-
-
-xml_schema::Uri bdoc::XAdES132Signature::ocspDigestAlgorithm() const
-{
-	return unsignSigProps()->
-			completeRevocationRefs()[0].oCSPRefs()->
-				oCSPRef()[0].digestAlgAndValue()->
-					digestMethod().algorithm();
-}
-
-void bdoc::XAdES132Signature::getRevocationOCSPRef(
-	std::vector<unsigned char>& data, std::string& digestMethodUri) const
-{
-	xades132::UnsignedSignaturePropertiesType::CompleteRevocationRefsSequence
-		crrSeq = unsignSigProps()->completeRevocationRefs();
-
-	if (!crrSeq.empty()) {
-		xades132::CompleteRevocationRefsType::OCSPRefsOptional
-					ocspRefsOpt = crrSeq[0].oCSPRefs();
-		if (ocspRefsOpt.present()) {
-			xades132::OCSPRefsType::OCSPRefSequence
-					ocspRefSeq = ocspRefsOpt->oCSPRef();
-
-			if (!ocspRefSeq.empty()) {
-				xades132::OCSPRefType::DigestAlgAndValueOptional
-				digestOpt = ocspRefSeq[0].digestAlgAndValue();
-
-				if (digestOpt.present()) {
-					dsig::DigestValueType
-						digestValue = digestOpt->
-								digestValue();
-
-					data.resize(digestValue.size());
-					std::copy(digestValue.data(),
-						digestValue.data() +
-						digestValue.size(),
-						data.begin());
-
-					xml_schema::Uri uri =
-						digestOpt->digestMethod().
-								algorithm();
-					digestMethodUri = uri;
-
-					return;
-				}
-			}
-		}
-	}
-
-	THROW_STACK_EXCEPTION(
-		"Missing UnsignedProperties/UnsignedSignatureProperties/Comple"
-		"teRevocationRefs/OCSPRefs/OCSPRef/DigestAlgAndValue element");
 }
 
 void bdoc::XAdES132Signature::checkKeyInfo() const
@@ -1367,6 +1100,12 @@ void bdoc::XAdES132Signature::checkSignedSignatureProperties() const
 			policyOpt = signedSigProps.signaturePolicyIdentifier();
 
 	if (policyOpt.present()) {
+		const xades132::SignaturePolicyIdentifierType::SignaturePolicyIdOptional
+			&id = policyOpt.get().signaturePolicyId();
+		if (id.present() && id.get().sigPolicyId().identifier() ==
+				"urn:oid:1.3.6.1.4.1.10015.1000.3.2.1") {
+			return; // OK (BDOC – FORMAT FOR DIGITAL SIGNATURES)
+		}
 		THROW_STACK_EXCEPTION("Signature policy is not valid");
 	}
 }

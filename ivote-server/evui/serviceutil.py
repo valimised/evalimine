@@ -3,7 +3,7 @@
 """
 Copyright: Eesti Vabariigi Valimiskomisjon
 (Estonian National Electoral Committee), www.vvk.ee
-Written in 2004-2013 by Cybernetica AS, www.cyber.ee
+Written in 2004-2014 by Cybernetica AS, www.cyber.ee
 
 This work is licensed under the Creative Commons
 Attribution-NonCommercial-NoDerivs 3.0 Unported License.
@@ -18,13 +18,14 @@ import uiutil
 import regrights
 import burner
 import evcommon
+import autocmd
 
 SCRIPT_CONFIG_HTH = "config_hth.py"
 SCRIPT_CONFIG_HSM = "config_hsm.py"
 SCRIPT_CHECK_CONSISTENCY = "check_consistency.py"
 SCRIPT_VOTERS_FILE_HISTORY = "show_voters_files_history.py"
 SCRIPT_REGRIGHTS = "regrights.py"
-SCRIPT_HTS = "htsdisp.py"
+SCRIPT_HTS = "load_rev_files.py"
 SCRIPT_INIT_CONF = "init_conf.py"
 SCRIPT_CONFIG_SRV = "config_common.py"
 SCRIPT_INSTALL_SRV = "installer.py"
@@ -369,6 +370,12 @@ def do_pre_start_counting_hes():
     Election().refuse_new_voters()
     print 'Kandidaatide nimekirjade väljastamine peatatud'
 
+def do_cancel_pre_start_counting_hes():
+    if not uiutil.ask_yes_no("Kas oled kindel"):
+        return
+    Election().restore_new_voters()
+    print 'Kandidaatide nimekirjade väljastamine taastatud'
+
 def do_backup():
     """Varundame olekupuu DVD-le.
     """
@@ -394,7 +401,7 @@ def do_backup():
 def do_revoke(elid):
     revokef = uiutil.ask_file_name_from_cd(\
             "Sisesta tühistus-/ennistusnimekirja-faili asukoht")
-    cmd = "%s %s %s %s" % (SCRIPT_HTS, elid, "tyhista_ennista", revokef)
+    cmd = "%s %s %s" % (SCRIPT_HTS, elid, revokef)
     os.system(cmd)
 
 def do_new_election():
@@ -428,14 +435,17 @@ def restart_apache():
         print "Probleem taaskäivitamisel, vea kood on ", retcode
 
 def do_bdoc_conf_hes():
-    do_bdoc_conf()
-    restart_apache()
+    if do_bdoc_conf():
+        restart_apache()
 
 def do_bdoc_conf():
     bdoc_conf = uiutil.ask_dir_name(\
         "Sisesta sertifikaatide konfiguratsioonipuu asukoht")
     cmd = "%s %s" % (SCRIPT_CONFIG_DIGIDOC, bdoc_conf)
-    os.system(cmd)
+    ret = os.system(cmd)
+    if ret == 0:
+        return True
+    return False
 
 def do_enable_voters_list():
     Election().toggle_check_voters_list(True)
@@ -663,6 +673,41 @@ def do_get_verification_conf():
     print "Taimaut hääle kontrollimiseks minutites: %s" % def_time
     print "Lubatud arv kordusi hääle kontrollimiseks: %s" % def_count
 
+def do_schedule_autostart():
+    time = uiutil.ask_time("Sisesta valimiste automaatse algusaja kuupäev ja kellaaeg")
+    autocmd.schedule(autocmd.COMMAND_START, time)
 
+def do_unschedule_autostart():
+    job, time = autocmd.scheduled(autocmd.COMMAND_START)
+    if uiutil.ask_yes_no("Kas soovid kustutada automaatse algusaja %s" % time, \
+            uiutil.ANSWER_NO):
+        autocmd.unschedule(autocmd.COMMAND_START, job)
+
+def do_schedule_autostop():
+
+    time = uiutil.ask_time("Sisesta nimekirjade väljastamise automaatse " \
+            "lõpetamise kuupäev ja kellaaeg")
+
+    def_grace = autocmd.stop_grace_period()
+    if not def_grace:
+        def_grace = 15
+
+    grace_time = uiutil.ask_int("Sisesta ajavahemik nimekirjade väljastamise " \
+            "automaatse lõpu\nja häälte vastuvõtmise automaatse lõpu vahel " \
+            "minutites", def_grace, 1)
+    autocmd.set_stop_grace_period(grace_time)
+
+    autocmd.schedule(autocmd.COMMAND_PREPARE_STOP, time)
+
+def do_unschedule_autostop():
+    prepare = autocmd.scheduled(autocmd.COMMAND_PREPARE_STOP)
+    stop = autocmd.scheduled(autocmd.COMMAND_STOP)
+    time = prepare[1] if prepare else stop[1]
+    if uiutil.ask_yes_no("Kas soovid kustutada automaatse lõpuaja %s" % time, \
+            uiutil.ANSWER_NO):
+        if prepare:
+            autocmd.unschedule(autocmd.COMMAND_PREPARE_STOP, prepare[0])
+        if stop:
+            autocmd.unschedule(autocmd.COMMAND_STOP, stop[0])
 
 # vim:set ts=4 sw=4 et fileencoding=utf8:

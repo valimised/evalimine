@@ -20,7 +20,10 @@ check: all pylint pychecker
 
 ARCH:=$(shell dpkg-architecture -qDEB_HOST_ARCH)
 debuild:
-	debuild -i -I || echo "debuild $(ARCH)"
+	debuild --no-lintian -i -I -us -uc || echo "debuild $(ARCH)"
+
+lintian:
+	debuild -i -I -us -uc || echo "debuild $(ARCH)"
 
 repo:
 	./debian/repo.py ../evote-$(ARCH) .. $(ARCH)

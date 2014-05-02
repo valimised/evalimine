@@ -3,7 +3,7 @@
  * (Estonian National Electoral Committee), www.vvk.ee
  * Derived work from libdicidocpp library
  * https://svn.eesti.ee/projektid/idkaart_public/trunk/libdigidocpp/
- * Written in 2011-2013 by Cybernetica AS, www.cyber.ee
+ * Written in 2011-2014 by Cybernetica AS, www.cyber.ee
  *
  * This work is licensed under the Creative Commons
  * Attribution-NonCommercial-NoDerivs 3.0 Unported License.
@@ -279,7 +279,7 @@ bdoc::OCSP::CertStatus bdoc::OCSP::validateResponse(OCSP_REQUEST* req, OCSP_RESP
 	}
 }
 
-void bdoc::OCSP::verifyResponse(const std::vector<unsigned char>& ocspResponseDER) const
+void bdoc::OCSP::verifyResponse(const std::vector<unsigned char>& ocspResponseDER, tm& producedAt) const
 {
 	BIO * bio = BIO_new_mem_buf(const_cast<unsigned char*>(&ocspResponseDER[0]), ocspResponseDER.size());
 	BIO_scope bioScope(&bio);
@@ -297,6 +297,7 @@ void bdoc::OCSP::verifyResponse(const std::vector<unsigned char>& ocspResponseDE
 	if (res <= 0) {
 		THROW_STACK_EXCEPTION("OCSP responder certificate not found or not valid.");
 	}
+	producedAt = convert(basic->tbsResponseData->producedAt);
 }
 
 std::vector<unsigned char> bdoc::OCSP::getNonce(const std::vector<unsigned char>& ocspResponseDER) const

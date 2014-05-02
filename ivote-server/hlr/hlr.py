@@ -4,7 +4,7 @@
 """
 Copyright: Eesti Vabariigi Valimiskomisjon
 (Estonian National Electoral Committee), www.vvk.ee
-Written in 2004-2013 by Cybernetica AS, www.cyber.ee
+Written in 2004-2014 by Cybernetica AS, www.cyber.ee
 
 This work is licensed under the Creative Commons
 Attribution-NonCommercial-NoDerivs 3.0 Unported License.
@@ -29,7 +29,15 @@ import formatutil
 
 VOTING_ID_LENGTH = 28
 DECRYPT_PROGRAM = "threaded_decrypt"
+SIGN_PROGRAM = "sign_data"
 CORRUPTED_VOTE = "xxx"
+
+CERT_PATH = "/usr/lunasa/cert/vvk.der"
+CERT = "vvk.der"
+
+README_PATH = "/usr/share/doc/evote-hlr/README"
+README = "README"
+
 
 ENV_EVOTE_TMPDIR = "EVOTE_TMPDIR"
 
@@ -42,6 +50,14 @@ G_DECRYPT_ERRORS = {1: 'Dekrüpteerija sai vale arvu argumente',
     7: 'Viga väljundi kirjutamisel',
     8: 'Häälte faili rida ei vastanud formaadile',
     9: 'Dekrüpteerija ebaõnnestus'}
+
+
+G_SIGN_ERRORS = {1: 'Allkirjastaja sai vale arvu argumente',
+    2: 'Tulemusfaili ei önnestunud lugemiseks avada',
+    3: 'Allkirjafaili ei õnnestunud kirjutamiseks avada',
+    4: 'Viga sisendi lugemisel',
+    5: 'Viga väljundi kirjutamisel',
+    6: 'Allkirjastaja ebaõnnestus'}
 
 
 class DecodedVoteList(inputlists.InputList):
@@ -178,6 +194,8 @@ class ChoicesCounter:
                 out_f.write("\t".join(count_line) + "\n")
 
 
+def _sig(inf):
+    return "%s.sig" % inf
 
 class HLR:
     """
@@ -201,6 +219,7 @@ class HLR:
         tmpreg.delete_sub_keys([])
         self.output_file = tmpreg.path(['decrypted_votes'])
         self.decrypt_prog = DECRYPT_PROGRAM
+        self.sign_prog = SIGN_PROGRAM
         self.__cnt = ChoicesCounter()
 
     def __del__(self):
@@ -246,6 +265,75 @@ class HLR:
                 (input_file, exit_code)
         evlog.log_error(errstr)
         return False
+
+
+    def _sign_result(self, pin, input_file):
+
+        token_name = Election().get_hsm_token_name()
+        priv_key_label = Election().get_hsm_priv_key()
+        pkcs11lib = Election().get_pkcs11_path()
+        args = [input_file, _sig(input_file), \
+            token_name, priv_key_label, pin, pkcs11lib]
+
+        exit_code = 0
+
+        try:
+            exit_code = subprocess.call([self.sign_prog] + args)
+        except OSError, oserr:
+            errstr = "Tulemuste faili '%s' allkirjastamine nurjus: %s" % \
+                (input_file, oserr)
+            evlog.log_error(errstr)
+            return False
+
+        if exit_code == 0:
+            return True
+
+        if exit_code > 0:
+            errstr2 = "Tundmatu viga"
+            if exit_code in G_SIGN_ERRORS:
+                errstr2 = G_SIGN_ERRORS[exit_code]
+
+            errstr = \
+                "Tulemuste faili '%s' allkirjastamine nurjus: %s (kood %d)" % \
+                (input_file, errstr2, exit_code)
+            evlog.log_error(errstr)
+            return False
+
+        errstr = "Tulemuste faili '%s' allkirjastamine nurjus (signaal %d)" % \
+                (input_file, exit_code)
+        evlog.log_error(errstr)
+        return False
+
+    def _sign_result_files(self, pin):
+        f1 = self._reg.path(\
+                ['hlr', 'output', evcommon.ELECTIONRESULT_FILE])
+        f2 = self._reg.path(\
+                ['hlr', 'output', evcommon.ELECTIONRESULT_STAT_FILE])
+
+        ret1 = self._sign_result(pin, f1)
+        ret2 = self._sign_result(pin, f2)
+
+        if (ret1 and ret2):
+            import zipfile
+            zippath = self._reg.path(\
+                ['hlr', 'output', evcommon.ELECTIONRESULT_ZIP_FILE])
+            rzip = zipfile.ZipFile(zippath, "w")
+            rzip.write(f1, evcommon.ELECTIONRESULT_FILE)
+            rzip.write(_sig(f1), _sig(evcommon.ELECTIONRESULT_FILE))
+            rzip.write(f2, evcommon.ELECTIONRESULT_STAT_FILE)
+            rzip.write(_sig(f2), _sig(evcommon.ELECTIONRESULT_STAT_FILE))
+
+            if os.path.isfile(CERT_PATH) and os.access(CERT_PATH, os.R_OK):
+                rzip.write(CERT_PATH, CERT)
+
+            if os.path.isfile(README_PATH) and os.access(README_PATH, os.R_OK):
+                rzip.write(README_PATH, README)
+
+            rzip.close()
+            return True
+        else:
+            return False
+
 
     def _add_kehtetu(self, ringkond, district):
         self.__cnt.add_vote(ringkond, district, ringkond[0] + ".kehtetu")
@@ -343,15 +431,30 @@ class HLR:
             return False
         return True
 
+    def _create_logs(self):
+        with open(self._reg.path(['common','log4']),'w') as log4_f:
+            log4_f.write(evcommon.VERSION + "\n")
+            log4_f.write(self._elid + "\n")
+            log4_f.write("4\n")
+        with open(self._reg.path(['common','log5']),'w') as log5_f:
+            log5_f.write(evcommon.VERSION + "\n")
+            log5_f.write(self._elid + "\n")
+            log5_f.write("5\n")
+        return True
+
     def run(self, pin):
         try:
             self.__cnt.load(self._reg)
             if not self._decrypt_votes(pin):
                 return False
+            if not self._create_logs():
+                return False
             if not self._count_votes():
                 return False
             self._write_result()
             if not self._check_logs():
+                return False
+            if not self._sign_result_files(pin):
                 return False
             return True
         except:

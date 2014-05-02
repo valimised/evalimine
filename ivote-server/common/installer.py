@@ -4,7 +4,7 @@
 """
 Copyright: Eesti Vabariigi Valimiskomisjon
 (Estonian National Electoral Committee), www.vvk.ee
-Written in 2004-2013 by Cybernetica AS, www.cyber.ee
+Written in 2004-2014 by Cybernetica AS, www.cyber.ee
 
 This work is licensed under the Creative Commons
 Attribution-NonCommercial-NoDerivs 3.0 Unported License.
@@ -20,6 +20,7 @@ import regrights
 import tempfile
 import shutil
 
+import bdocconfig
 import bdocpython
 import bdocpythonutils
 
@@ -112,7 +113,7 @@ class ElectionInstaller:
 
 
     def process_bdoc(self, bdocfile):
-        config = bdocpythonutils.BDocConfig()
+        config = bdocconfig.BDocConfig()
         config.load(Election().get_bdoc_conf())
         self.__bdoc = bdocpythonutils.BDocContainer()
         self.__bdoc.load(bdocfile)
@@ -210,6 +211,7 @@ def usage():
     print "Invalid arguments"
     print "%s verify <bdoc>" % sys.argv[0]
     print "%s install <bdoc>" % sys.argv[0]
+    sys.exit(1)
 
 
 if __name__ == "__main__":
@@ -221,7 +223,6 @@ if __name__ == "__main__":
     typ = sys.argv[1]
     if not typ in ['install', 'verify']:
         usage()
-        sys.exit(1)
 
     inst = ElectionInstaller()
     ret = 1
@@ -239,6 +240,7 @@ if __name__ == "__main__":
         if res:
             inst.extract()
             inst.setup()
+            ret = 0
 
     del inst
     bdocpython.terminate()

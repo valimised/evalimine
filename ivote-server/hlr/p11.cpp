@@ -1,7 +1,7 @@
 /*
  * Copyright: Eesti Vabariigi Valimiskomisjon
  * (Estonian National Electoral Committee), www.vvk.ee
- * Written in 2004-2013 by Cybernetica AS, www.cyber.ee
+ * Written in 2004-2014 by Cybernetica AS, www.cyber.ee
  *
  * This work is licensed under the Creative Commons
  * Attribution-NonCommercial-NoDerivs 3.0 Unported License.
@@ -558,6 +558,51 @@ std::string Session::encrypt(const char *data, size_t len)
 
 	return ret;
 }
+
+std::string Session::signit(const char *data, size_t len)
+{
+	std::string ret;
+
+	CK_RV rc;
+	CK_BYTE_PTR signed_data = NULL;
+	CK_ULONG signed_len;
+
+
+	CK_MECHANISM mechanism = {
+		CKM_SHA1_RSA_PKCS, NULL_PTR, 0
+	};
+
+
+	if (_hpriv == NULL_PTR) {
+		throw std::runtime_error("Private key == NULL");
+	}
+
+	rc = _flist->C_SignInit(_session, &mechanism, _hpriv);
+	if (rc != CKR_OK) {
+		throwCKR("C_SignInit() failed", rc);
+	}
+
+	rc = _flist->C_Sign(_session, (CK_BYTE_PTR)data, len,
+			NULL, &signed_len);
+	if (rc != CKR_OK) {
+		throwCKR("C_Sign() failed", rc);
+	}
+
+	signed_data = (CK_BYTE_PTR) malloc(signed_len);
+	rc = _flist->C_Sign(_session, (CK_BYTE_PTR)data, len,
+			signed_data, &signed_len);
+	if (rc != CKR_OK) {
+		throwCKR("C_Sign() failed", rc);
+	}
+
+	ret = std::string((char *)signed_data, signed_len);
+	delete signed_data;
+	signed_data = NULL;
+
+	return ret;
+}
+
+
 
 std::string Session::decrypt(const char *data, size_t len, CK_BYTE_PTR ctx, CK_ULONG_PTR ctx_len)
 {

@@ -4,7 +4,7 @@
 """
 Copyright: Eesti Vabariigi Valimiskomisjon
 (Estonian National Electoral Committee), www.vvk.ee
-Written in 2004-2013 by Cybernetica AS, www.cyber.ee
+Written in 2004-2014 by Cybernetica AS, www.cyber.ee
 
 This work is licensed under the Creative Commons
 Attribution-NonCommercial-NoDerivs 3.0 Unported License.
@@ -12,14 +12,16 @@ To view a copy of this license, visit
 http://creativecommons.org/licenses/by-nc-nd/3.0/.
 """
 
+import bdocconfig
 import bdocpython
 import bdocpythonutils
 from election import Election
 import base64
 import hts
-import htsrevoke
+import htsbase
 import evstrings
 import evcommon
+from evmessage import EV_ERRORS
 from evmessage import EvMessage
 import evlog
 import htsstatus
@@ -47,15 +49,18 @@ def _revoke_vote_id(voter_code):
         if reg.check(key + [htscommon.VOTE_VERIFICATION_ID_FILENAME]):
             otp = reg.read_string_value(key, \
                     htscommon.VOTE_VERIFICATION_ID_FILENAME)
+            evlog.log("Found vote ID %s under question %s" % (otp, quest))
             otps.add(otp.value)
-            evlog.log("Revoking vote ID %s" % otp)
-            if not _delete_vote_id(otp.value):
-                evlog.log_error("No such vote-ID: %s" % otp)
             otp.delete()
 
     if len(otps) > 1:
         evlog.log_error("The voter %s had multiple vote ID-s: %s" % \
                 (voter_code, ", ".join(otps)))
+
+    for otp in otps:
+        evlog.log("Revoking vote ID %s" % otp)
+        if not _delete_vote_id(otp):
+            evlog.log_error("No such vote-ID: %s" % otp)
 
 class HTSStoreException(Exception):
     def __init__(self, ret):
@@ -90,22 +95,17 @@ class HTSStore:
 
         sig_fn = sigfiles[0]
         sig_content = self.bdoc.signatures[sig_fn]
-        if self.bdoc.prof == 'BES':
-            res = verifier.verifyBESOnline(sig_content)
-            if res.result:
-                self.bdoc.addTM(sig_fn, res.signature)
-            return res
-
-        return verifier.verifyTMOffline(sig_content)
+        res = verifier.verifyInHTS(sig_content)
+        if res.signature:
+            self.bdoc.addTM(sig_fn, res.signature)
+        return res
 
 
     def verify_vote(self, votedata):
         import regrights
-        self.user_msg = \
-            EvMessage().get_str("TEHNILINE_VIGA_HAALE_VERIFITSEERIMISEL", \
-            evstrings.TEHNILINE_VIGA_HAALE_VERIFITSEERIMISEL)
+        self.user_msg = EV_ERRORS.TEHNILINE_VIGA
 
-        conf = bdocpythonutils.BDocConfig()
+        conf = bdocconfig.BDocConfig()
         conf.load(Election().get_bdoc_conf())
 
         self.bdoc = bdocpythonutils.BDocContainer()
@@ -116,14 +116,10 @@ class HTSStore:
         if not res.result:
             self.log_msg = res.error
             if self.user_msg == '':
-                self.user_msg = EvMessage().\
-                    get_str("TEHNILINE_VIGA_HAALE_VERIFITSEERIMISEL", \
-                        evstrings.TEHNILINE_VIGA_HAALE_VERIFITSEERIMISEL)
+                self.user_msg = EV_ERRORS.TEHNILINE_VIGA
 
             if not res.ocsp_is_good:
-                self.user_msg = EvMessage().\
-                    get_str("SERTIFIKAAT_ON_TYHISTATUD_VOI_PEATATUD", \
-                        evstrings.SERTIFIKAAT_ON_TYHISTATUD_VOI_PEATATUD)
+                self.user_msg = EV_ERRORS.SERTIFIKAAT_ON_TYHISTATUD_VOI_PEATATUD
                 raise HTSStoreException, evcommon.EVOTE_CERT_ERROR
 
             raise HTSStoreException, evcommon.EVOTE_ERROR
@@ -138,9 +134,7 @@ class HTSStore:
         self.log_msg = \
             "Allkirjastatud hääl '%s' ei vasta formaadinõuetele" % \
             self.signercode
-        self.user_msg = EvMessage().get_str(\
-            "TEHNILINE_VIGA_HAALE_TALLETAMISEL", \
-            evstrings.TEHNILINE_VIGA_HAALE_TALLETAMISEL)
+        self.user_msg = EV_ERRORS.TEHNILINE_VIGA
 
         for dfn in self.bdoc.documents:
             quest = dfn.split('.')
@@ -185,15 +179,12 @@ class HTSStore:
             except:
                 dsc = el[0]
             if voter == None:
-                self.user_msg = EvMessage().get_str("POLE_LUBATUD_HAALETADA", \
-                    evstrings.POLE_LUBATUD_HAALETADA) % (self.signercode, dsc)
-                self.log_msg = self.user_msg
+                self.user_msg = EV_ERRORS.POLE_VALIJA
+                self.log_msg = "Pole valija %s, %s"  % (self.signercode, dsc)
                 raise HTSStoreException, evcommon.EVOTE_ERROR
             if max_votes_per_voter:
                 if self._count_votes(el[0]) >= max_votes_per_voter:
-                    self.user_msg = EvMessage().get_str(\
-            "TEHNILINE_VIGA_MAX_HAALTE_ARV_PER_HAALETAJA_ON_ULETATUD", \
-            evstrings.TEHNILINE_VIGA_MAX_HAALTE_ARV_PER_HAALETAJA_ON_ULETATUD)
+                    self.user_msg = EV_ERRORS.TEHNILINE_VIGA
 
                     self.log_msg = self.user_msg
                     raise HTSStoreException, evcommon.EVOTE_ERROR
@@ -248,9 +239,7 @@ class HTSStore:
                 valija=el[1])
 
             if not el[0].haaletanud(self.signercode):
-                self.user_msg = EvMessage().get_str(\
-                    "TEHNILINE_VIGA_HAALE_TALLETAMISEL", \
-                    evstrings.TEHNILINE_VIGA_HAALE_TALLETAMISEL)
+                self.user_msg = EV_ERRORS.TEHNILINE_VIGA
                 self.log_msg = \
                     'Hääle talletamisjärgne kontroll andis '\
                     'vigase tulemuse (%s)' % self.signercode
@@ -267,7 +256,6 @@ class HTSVerify:
         self._rreg = Election().get_root_reg()
         self._vote_id = None
         self._voter_code = None
-        self._voter = None
 
     def __revoke_vote_id(self):
         _revoke_vote_id(self._voter_code)
@@ -311,18 +299,19 @@ class HTSVerify:
     def __load_bdoc(self, elid):
         voter_key = htscommon.get_user_key(self._voter_code)
         sreg = Election().get_sub_reg(elid)
-        for votefile in sreg.list_keys(voter_key):
-            if htscommon.VALID_VOTE_PATTERN.match(votefile):
-                bdoc = bdocpythonutils.BDocContainer()
-                bdoc.load(sreg.path(voter_key + [votefile]))
-                bdoc.validate(bdocpythonutils.ManifestProfile("TM"))
+        vote_files = []
+        for vfile in sreg.list_keys(voter_key):
+            if htscommon.VALID_VOTE_PATTERN.match(vfile):
+                vote_files.append(vfile)
 
-                self._voter = htscommon.get_votefile_voter(votefile)
-                break
+        vote_files.sort()
+        latest = vote_files.pop()
+        if latest:
+            bdoc = htsbase.get_vote(sreg.path(voter_key + [latest]))
 
         if not bdoc:
             evlog.log_error("No valid BDOC found for voter %s using vote ID %s" % \
-                    (self._voter, self._vote_id))
+                    (self._voter_code, self._vote_id))
             raise HTSVerifyException, evcommon.VERIFY_ERROR
 
         return bdoc
@@ -404,18 +393,21 @@ class HTSAll:
         fo.write('\nAnalüüs hääletuste kaupa:\n\n')
         for el in Election().get_questions():
             _h = htsstatus.HTSStatus(el)
-            _h.calculate(verify)
+            if verify:
+                _h.status_verify()
+            else:
+                _h.status_noverify()
             _h.output(fo)
             fo.write('\n')
 
-    def kooskolaline(self, voters_files_sha1):
-        if Election().get_root_reg().check(['common', 'voters_files_sha1']):
-            hts_voters_files_sha1 = \
+    def kooskolaline(self, voters_files_sha256):
+        if Election().get_root_reg().check(['common', 'voters_files_sha256']):
+            hts_voters_files_sha256 = \
                 Election().get_root_reg().read_string_value(
-                    ['common'], 'voters_files_sha1').value
+                    ['common'], 'voters_files_sha256').value
         else:
-            hts_voters_files_sha1 = ''
-        if hts_voters_files_sha1 != voters_files_sha1:
+            hts_voters_files_sha256 = ''
+        if hts_voters_files_sha256 != voters_files_sha256:
             return False
         return True
 
@@ -423,7 +415,7 @@ class HTSAll:
         votes = []
         lst = Election().get_questions()
         for el in lst:
-            _h = htsrevoke.HTSRevoke(el)
+            _h = htsbase.HTSBase(el)
             if _h.haaletanud(ik):
                 votes.append(\
                     Election().get_sub_reg(el).\
@@ -442,7 +434,7 @@ class HTSAll:
     def __haaletanud(self, ik):
         lst = Election().get_questions()
         for el in lst:
-            _h = htsrevoke.HTSRevoke(el)
+            _h = htsbase.HTSBase(el)
             if _h.haaletanud(ik):
                 return True
         return False
@@ -451,7 +443,7 @@ class HTSAll:
         questions = []
         lst = Election().get_questions()
         for el in lst:
-            _h = htsrevoke.HTSRevoke(el)
+            _h = htsbase.HTSBase(el)
             if _h.haaletanud(ik):
                 questions.append(el)
         return questions
@@ -486,10 +478,7 @@ class HTSAll:
             return self.__talleta(decoded_vote)
         except:
             evlog.log_exception()
-            return evcommon.EVOTE_ERROR, \
-                    EvMessage().get_str(\
-                    "TEHNILINE_VIGA_HAALE_TALLETAMISEL",\
-                    evstrings.TEHNILINE_VIGA_HAALE_TALLETAMISEL)
+            return evcommon.EVOTE_ERROR, EV_ERRORS.TEHNILINE_VIGA
 
     def verify(self, vote_id):
         verifier = HTSVerify()

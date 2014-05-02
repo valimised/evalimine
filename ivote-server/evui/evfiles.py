@@ -4,7 +4,7 @@
 """
 Copyright: Eesti Vabariigi Valimiskomisjon
 (Estonian National Electoral Committee), www.vvk.ee
-Written in 2004-2013 by Cybernetica AS, www.cyber.ee
+Written in 2004-2014 by Cybernetica AS, www.cyber.ee
 
 This work is licensed under the Creative Commons
 Attribution-NonCommercial-NoDerivs 3.0 Unported License.
@@ -24,24 +24,29 @@ class EvFileTable:
         if ffile:
             self.__files.append(ffile)
 
-    def get_existing_files(self):
+    def get_existing_files(self, usebinary):
 
         ret = {}
 
         for el in self.__files:
             if el.exists():
-                ret[el.name()] = el.path()
+                if usebinary or not el.binary():
+                    ret[el.name()] = el.path()
 
         return ret
 
 
+IS_BINARY = True
+
+
 class EvFile:
 
-    def __init__(self, filename, uiname, regprefix):
+    def __init__(self, filename, uiname, regprefix, binary = False):
         self.__filename = filename
         self.__uiname = uiname
         self.__regprefix = regprefix
         self.__reg = Election().get_root_reg()
+        self.__binary = binary
 
     def exists(self):
         return self.__reg.check(self.__regprefix + [self.__filename])
@@ -51,6 +56,9 @@ class EvFile:
 
     def name(self):
         return self.__uiname
+
+    def binary(self):
+        return self.__binary
 
 
 def log1_file(elid):
@@ -89,6 +97,10 @@ def integrity_log_file():
     return EvFile(evcommon.DEBUG_LOG_FILE, \
                     evcommon.DEBUG_LOG_STR, ['common'])
 
+def ocsp_log_file():
+    return EvFile(evcommon.OCSP_LOG_FILE, \
+                    evcommon.OCSP_LOG_STR, ['common'])
+
 def voter_list_log_file():
     return EvFile(evcommon.VOTER_LIST_LOG_FILE, \
                     evcommon.VOTER_LIST_LOG_STR, ['common'])
@@ -102,6 +114,13 @@ def electorslist_file(elid):
     return EvFile(evcommon.ELECTORSLIST_FILE, evcommon.ELECTORSLIST_STR, \
                                         ['questions', elid, 'hts', 'output'])
 
+
+def electorslist_file_pdf(elid):
+    return EvFile(evcommon.ELECTORSLIST_FILE_PDF, \
+            evcommon.ELECTORSLIST_PDF_STR, \
+            ['questions', elid, 'hts', 'output'], IS_BINARY)
+
+
 def revreport_file(elid):
     return EvFile(evcommon.REVREPORT_FILE, evcommon.REVREPORT_STR, \
                                         ['questions', elid, 'hts', 'output'])
@@ -109,6 +128,11 @@ def revreport_file(elid):
 def statusreport_file():
     return EvFile(evcommon.STATUSREPORT_FILE, \
                     evcommon.STATUSREPORT_STR, ['common'])
+
+def electionresult_zip_file(elid):
+    return EvFile(evcommon.ELECTIONRESULT_ZIP_FILE, \
+                    evcommon.ELECTIONRESULT_ZIP_STR, \
+                    ['questions', elid, 'hlr', 'output'], IS_BINARY)
 
 def electionresult_file(elid):
     return EvFile(evcommon.ELECTIONRESULT_FILE, \
@@ -126,7 +150,7 @@ def add_hts_files_to_table(elid, table):
     if reg.check(['questions', elid, 'hts', 'output']):
         o_files = os.listdir(reg.path(['questions', elid, 'hts', 'output']))
         for of in o_files:
-            if of.find("tokend.") == 0 and of.find(".sha1") == -1:
+            if of.find("tokend.") == 0 and of.find(".sha256") == -1:
                 table.add_file(EvFile(of, of, ['questions', elid, 'hts', 'output']))
 
 # vim:set ts=4 sw=4 et fileencoding=utf8:

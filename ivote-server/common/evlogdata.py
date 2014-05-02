@@ -4,7 +4,7 @@
 """
 Copyright: Eesti Vabariigi Valimiskomisjon
 (Estonian National Electoral Committee), www.vvk.ee
-Written in 2004-2013 by Cybernetica AS, www.cyber.ee
+Written in 2004-2014 by Cybernetica AS, www.cyber.ee
 
 This work is licensed under the Creative Commons
 Attribution-NonCommercial-NoDerivs 3.0 Unported License.
@@ -31,8 +31,8 @@ def get_user_agent():
 
 
 def get_vote(name, data):
-    return "VOTE=%s, SHA1=%s" % \
-            (name, hashlib.sha1(data).digest().encode('hex'))
+    return "VOTE=%s, SHA256=%s" % \
+            (name, hashlib.sha256(data).digest().encode('hex'))
 
 
 def get_cert_data_log(cert_pem, prefix = None, addlines = False):

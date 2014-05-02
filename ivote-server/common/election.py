@@ -4,7 +4,7 @@
 """
 Copyright: Eesti Vabariigi Valimiskomisjon
 (Estonian National Electoral Committee), www.vvk.ee
-Written in 2004-2013 by Cybernetica AS, www.cyber.ee
+Written in 2004-2014 by Cybernetica AS, www.cyber.ee
 
 This work is licensed under the Creative Commons
 Attribution-NonCommercial-NoDerivs 3.0 Unported License.
@@ -129,11 +129,11 @@ class Election:
     def __init__(self):
         self.reg = evreg.Registry(root=evcommon.EVREG_CONFIG)
 
-    def get_voters_files_sha1(self):
-        if self.reg.check(['common', 'voters_files_sha1']):
+    def get_voters_files_sha256(self):
+        if self.reg.check(['common', 'voters_files_sha256']):
             return \
                 self.reg.read_string_value(\
-                    ['common'], 'voters_files_sha1').value
+                    ['common'], 'voters_files_sha256').value
         return ''
 
     def init_keys(self):
@@ -175,15 +175,15 @@ class Election:
             os.path.basename(voters_file)])
         shutil.copyfile(voters_file, copy_voters_file)
 
-        voters_file_sha1 = ksum.compute(voters_file)
+        voters_file_sha256 = ksum.compute(voters_file)
         voters_file_hashes = ['common', 'voters_file_hashes']
         self.reg.ensure_key(voters_file_hashes)
-        self.reg.create_string_value(voters_file_hashes, voters_file_sha1, '')
+        self.reg.create_string_value(voters_file_hashes, voters_file_sha256, '')
 
-        voters_files_sha1 = \
-            ksum.compute_voters_files_sha1(self.reg.path(voters_file_hashes))
+        voters_files_sha256 = \
+            ksum.compute_voters_files_sha256(self.reg.path(voters_file_hashes))
         self.reg.create_string_value(['common'], \
-            'voters_files_sha1', voters_files_sha1)
+            'voters_files_sha256', voters_files_sha256)
 
     def get_bdoc_conf(self):
         return self.reg.path([evcommon.BDOC])
@@ -292,7 +292,7 @@ class Election:
             self.reg.create_string_value(key, ELECTION_ID, el_id)
             quest = question.Question(el_id, None, \
                 evreg.Registry(root=self.reg.path(['questions', el_id])))
-            g_common_keys = ['common/rights', 'common/logs']
+            g_common_keys = ['common/rights']
             quest.create_keys(g_common_keys)
             quest.set_type(int(el_type))
             quest.set_descr(el_desc)
@@ -304,7 +304,6 @@ class Election:
         if self.is_hes():
             self.reg.truncate_value(['common'], evcommon.APPLICATION_LOG_FILE)
             self.reg.truncate_value(['common'], evcommon.ERROR_LOG_FILE)
-            self.reg.truncate_value(['common'], evcommon.VOTER_LIST_LOG_FILE)
             self.reg.truncate_value(['common'], evcommon.DEBUG_LOG_FILE)
             self.reg.ensure_no_key(['common', 'nonewvoters'])
         if self.is_hts():
@@ -312,10 +311,12 @@ class Election:
             self.reg.truncate_value(['common'], evcommon.ERROR_LOG_FILE)
             self.reg.truncate_value(['common'], evcommon.OCSP_LOG_FILE)
             self.reg.truncate_value(['common'], evcommon.STATUSREPORT_FILE)
-            self.reg.truncate_value(['common'], evcommon.VOTER_LIST_LOG_FILE)
+            self.reg.delete_sub_keys(['verification'])
             for i in self.get_questions():
                 quest = question.Question(i, 'hts', self.get_sub_reg(i))
-                quest.create_log_files()
+                quest.truncate_log_file('1')
+                quest.truncate_log_file('2')
+                quest.truncate_log_file('3')
                 quest.create_revlog()
                 self.reg.delete_sub_keys(['questions', i, 'hts', 'votes'])
                 self.reg.delete_sub_keys(['questions', i, 'hts', 'output'])
@@ -447,6 +448,9 @@ class Election:
 
     def refuse_new_voters(self):
         self.reg.ensure_key(['common', 'nonewvoters'])
+
+    def restore_new_voters(self):
+        self.reg.ensure_no_key(['common', 'nonewvoters'])
 
     def allow_new_voters(self):
         return not self.reg.check(['common', 'nonewvoters'])

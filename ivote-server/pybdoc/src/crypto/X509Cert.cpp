@@ -3,7 +3,7 @@
  * (Estonian National Electoral Committee), www.vvk.ee
  * Derived work from libdicidocpp library
  * https://svn.eesti.ee/projektid/idkaart_public/trunk/libdigidocpp/
- * Written in 2011-2013 by Cybernetica AS, www.cyber.ee
+ * Written in 2011-2014 by Cybernetica AS, www.cyber.ee
  *
  * This work is licensed under the Creative Commons
  * Attribution-NonCommercial-NoDerivs 3.0 Unported License.
@@ -283,7 +283,7 @@ bool bdoc::X509Cert::isValid() const
 	return notBefore < 0 && notAfter > 0;
 }
 
-int bdoc::X509Cert::verify(X509_STORE* aStore) const
+bool bdoc::X509Cert::verify(X509_STORE* aStore, struct tm* tm) const
 {
 	if (aStore == NULL) {
 		THROW_STACK_EXCEPTION("Invalid argument to verify");
@@ -305,9 +305,23 @@ int bdoc::X509Cert::verify(X509_STORE* aStore) const
 		THROW_STACK_EXCEPTION("Failed to init X509_STORE_CTX %s",ERR_reason_error_string(ERR_get_error()));
 	}
 
+	if (tm != NULL) {
+		time_t t = mktime(tm);
+		if (t == -1) {
+			THROW_STACK_EXCEPTION("Given time cannot be represented as calendar time");
+		}
+
+		X509_VERIFY_PARAM *param = X509_STORE_CTX_get0_param(csc);
+		if (param == NULL) {
+			THROW_STACK_EXCEPTION("Failed to retrieve X509_STORE_CTX verification parameters %s",
+				ERR_reason_error_string(ERR_get_error()));
+		}
+		X509_VERIFY_PARAM_set_time(param, t);
+	}
+
 	int ok = X509_verify_cert(csc);
 
-	if (!ok) {
+	if (ok != 1) {
 		int err = X509_STORE_CTX_get_error(csc);
 		X509Cert cause(X509_STORE_CTX_get_current_cert (csc));
 		std::ostringstream s;
@@ -322,36 +336,7 @@ int bdoc::X509Cert::verify(X509_STORE* aStore) const
 		}
 	}
 
-	return ok;
-}
-
-std::list<std::string> bdoc::X509Cert::policies()
-{
-	std::list<std::string> ret;
-	int pos = X509_get_ext_by_NID(cert, NID_certificate_policies, -1);
-	if (pos > 0) {
-		X509_EXTENSION *ext = X509_get_ext(cert, pos);
-		CERTIFICATEPOLICIES *pols = NULL;
-		const unsigned char* buf = ext->value->data;
-		d2i_CERTIFICATEPOLICIES(&pols, &buf, ext->value->length);
-		int count = sk_POLICYINFO_num(pols);
-		for (int i = 0; i < count; i++) {
-			POLICYINFO *tmp = sk_POLICYINFO_value(pols, i);
-			int len = OBJ_obj2txt(NULL, 0, tmp->policyid, 1);
-			if (len > 0) {
-				char *buf = (char *)malloc((len + 1) * sizeof(char));
-				int err = OBJ_obj2txt(buf, len + 1, tmp->policyid, 1);
-
-				if (err > 0) {
-					ret.push_back(buf);
-				}
-				free(buf);
-
-			}
-		}
-	}
-
-	return ret;
+	return (ok == 1);
 }
 
 int bdoc::X509Cert::compareIssuerToString(std::string in) const  {

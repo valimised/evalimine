@@ -2,36 +2,41 @@ Source: evote
 Section: misc
 Priority: optional
 Maintainer: Sven Heiberg <sven@cyber.ee>
-Build-Depends: build-essential, fakeroot, debhelper, devscripts, python2.7-dev, libxml2-dev, libssl-dev, swig, chrpath, libtool, automake, python-gdbm, python-zsi, xsdcxx, libxerces-c-dev, libxml-security-c-dev
-Standards-Version: 3.8.0
+Build-Depends: fakeroot, debhelper, devscripts, python2.7-dev, libxml2-dev, libssl-dev, swig, chrpath, libtool, automake, python-gdbm, python-zsi, xsdcxx, libxerces-c-dev, libxml-security-c-dev, genisoimage
+Standards-Version: 3.9.4
 
 Package: evote-common
 Architecture: any
-Depends: ${shlibs:Depends}, ${misc:Depends}, dvd+rw-tools, openssl, lpr, python2.7, python-gdbm, autofs, kbd, locales, less, libxerces-c3.1, libxml-security-c16, python-m2crypto, rsyslog
+Conflicts: evote-prepare
+Depends: ${shlibs:Depends}, ${misc:Depends}, dvd+rw-tools, openssl, lpr, python2.7, python-gdbm, autofs, kbd, locales, less, libxerces-c3.1, libxml-security-c16, python-m2crypto, rsyslog, lvm2, at
 Description: E-hääletamise üldised komponendid
  Üldised komponendid
 
 Package: evote-hts
 Architecture: all
-Depends: ${misc:Depends}, evote-common (>= 1.1.1), adduser, python2.7, apache2, sysstat, openssl, rst2pdf, fontconfig, ttf-dejavu-core, python-psutil
+Conflicts: evote-hes, evote-hlr
+Depends: ${misc:Depends}, evote-common (>= 1.1.1), python2.7, adduser, apache2, sysstat, rst2pdf, fontconfig, ttf-dejavu-core, python-psutil, sudo
 Description: E-hääletamise häältetalletusserver (HTS)
  Häältetalletusserver
 
 Package: evote-hlr
 Architecture: any
-Depends: ${shlibs:Depends}, ${misc:Depends}, evote-common (>= 1.1.1), adduser, python2.7
+Conflicts: evote-hes, evote-hts
+Depends: ${shlibs:Depends}, ${misc:Depends}, evote-common (>= 1.1.1), python2.7, adduser, dos2unix
 Description: E-hääletamise häältelugemisrakendus (HLR)
  Häältelugemisrakendus
 
 Package: evote-hes
 Architecture: all
-Depends: ${misc:Depends}, evote-common (>= 1.1.1), adduser, apache2, python2.7, sysstat, openssl, python-zsi, python-psutil, sudo
+Conflicts: evote-hlr, evote-hts
+Depends: ${misc:Depends}, evote-common (>= 1.1.1), python2.7, adduser, apache2, sysstat, python-zsi, python-psutil, sudo
 Description: E-hääletamise häälteedastusserver (HES)
  Häälteedastusserver
 
 Package: evote-prepare
 Architecture: all
-Depends: ${misc:Depends}, python2.7, python-gdbm
+Conflicts: evote-common
+Depends: ${misc:Depends}, python2.7, python-gdbm, openssl
 Description: E-hääletamise abiskriptid
  Seadistusperioodi utiliidid
 
