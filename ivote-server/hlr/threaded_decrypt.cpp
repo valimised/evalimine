@@ -174,7 +174,7 @@ void Boss::prepareWork()
 		}
 	}
 
-	_pc = new ProgressBar(lines);
+	_pc = new ProgressBar(lines - 2);
 
 	_fin = fopen(_in.c_str(), "r");
 	if (_fin == NULL) {

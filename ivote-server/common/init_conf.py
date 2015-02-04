@@ -33,7 +33,7 @@ class ElectionCreator:
     def init_hts(self):
         import htscommon
 
-        election.Election().get_root_reg().ensure_key(\
+        election.Election().get_root_reg().ensure_key(
                 htscommon.get_verification_key())
         self.__quest.create_keys(G_HTS_KEYS)
         self.__quest.create_revlog()
@@ -44,7 +44,7 @@ class ElectionCreator:
     def prepare(self, ex_elid, ex_type, ex_descr):
         election.create_registry()
         election.Election().init_keys()
-        self.__quest = election.Election().new_question(\
+        self.__quest = election.Election().new_question(
                 ex_elid, ex_type, ex_descr)
 
     def init_done(self): # pylint: disable=R0201

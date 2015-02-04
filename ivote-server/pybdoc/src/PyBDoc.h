@@ -118,3 +118,25 @@ class ChallengeVerifier {
 		ChallengeVerifierImpl *impl;
 };
 
+class SignatureVerifierImpl;
+
+class SignatureVerifier {
+
+	public:
+
+		SignatureVerifier();
+		~SignatureVerifier();
+
+		bool isSignatureOk();
+
+		void setPubkey(const unsigned char *buf, size_t len);
+		void setSignature(const unsigned char *buf, size_t len);
+		void setHash(const unsigned char *buf, size_t len);
+
+		std::string error;
+
+	private:
+
+		SignatureVerifierImpl *impl;
+};
+

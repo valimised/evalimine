@@ -33,12 +33,15 @@ import time
 import random
 import os
 
+
 def _generate_vote_id():
     return os.urandom(20).encode('hex')
 
+
 def _delete_vote_id(vote_id):
-    return Election().get_root_reg().ensure_no_key(\
+    return Election().get_root_reg().ensure_no_key(
             htscommon.get_verification_key(vote_id))
+
 
 def _revoke_vote_id(voter_code):
     elec = Election()
@@ -47,14 +50,14 @@ def _revoke_vote_id(voter_code):
         reg = elec.get_sub_reg(quest)
         key = htscommon.get_user_key(voter_code)
         if reg.check(key + [htscommon.VOTE_VERIFICATION_ID_FILENAME]):
-            otp = reg.read_string_value(key, \
+            otp = reg.read_string_value(key,
                     htscommon.VOTE_VERIFICATION_ID_FILENAME)
             evlog.log("Found vote ID %s under question %s" % (otp, quest))
             otps.add(otp.value)
             otp.delete()
 
     if len(otps) > 1:
-        evlog.log_error("The voter %s had multiple vote ID-s: %s" % \
+        evlog.log_error("The voter %s had multiple vote ID-s: %s" %
                 (voter_code, ", ".join(otps)))
 
     for otp in otps:
@@ -62,9 +65,12 @@ def _revoke_vote_id(voter_code):
         if not _delete_vote_id(otp):
             evlog.log_error("No such vote-ID: %s" % otp)
 
+
 class HTSStoreException(Exception):
+
     def __init__(self, ret):
         self.ret = ret
+
 
 class HTSStore:
 
@@ -82,11 +88,11 @@ class HTSStore:
 
         _doc_count = len(self.bdoc.documents)
         if _doc_count == 0:
-            raise Exception, "BDoc ei sisalda ühtegi andmefaili"
+            raise Exception("BDoc ei sisalda ühtegi andmefaili")
 
         sigfiles = self.bdoc.signatures.keys()
         if len(sigfiles) != 1:
-            raise Exception, "BDoc sisaldab rohkem kui ühte allkirja"
+            raise Exception("BDoc sisaldab rohkem kui ühte allkirja")
 
         verifier = bdocpython.BDocVerifier()
         config.populate(verifier)
@@ -99,7 +105,6 @@ class HTSStore:
         if res.signature:
             self.bdoc.addTM(sig_fn, res.signature)
         return res
-
 
     def verify_vote(self, votedata):
         import regrights
@@ -120,9 +125,9 @@ class HTSStore:
 
             if not res.ocsp_is_good:
                 self.user_msg = EV_ERRORS.SERTIFIKAAT_ON_TYHISTATUD_VOI_PEATATUD
-                raise HTSStoreException, evcommon.EVOTE_CERT_ERROR
+                raise HTSStoreException(evcommon.EVOTE_CERT_ERROR)
 
-            raise HTSStoreException, evcommon.EVOTE_ERROR
+            raise HTSStoreException(evcommon.EVOTE_ERROR)
 
         self.signercode = regrights.get_personal_code(res.subject)
 
@@ -139,13 +144,13 @@ class HTSStore:
         for dfn in self.bdoc.documents:
             quest = dfn.split('.')
             if len(quest) != 2:
-                raise HTSStoreException, evcommon.EVOTE_ERROR
+                raise HTSStoreException(evcommon.EVOTE_ERROR)
 
             if quest[1] != 'evote':
-                raise HTSStoreException, evcommon.EVOTE_ERROR
+                raise HTSStoreException(evcommon.EVOTE_ERROR)
 
             if not quest[0] in Election().get_questions():
-                raise HTSStoreException, evcommon.EVOTE_ERROR
+                raise HTSStoreException(evcommon.EVOTE_ERROR)
 
             vote = self.bdoc.documents[dfn]
 
@@ -166,7 +171,7 @@ class HTSStore:
         max_votes_per_voter = None
         if Election().get_root_reg().check(['common', 'max_votes_per_voter']):
             max_votes_per_voter = \
-                Election().get_root_reg().read_integer_value(\
+                Election().get_root_reg().read_integer_value(
                     ['common'], 'max_votes_per_voter').value
 
         for el in self.questions:
@@ -174,20 +179,20 @@ class HTSStore:
             voter = _hts.talletaja(self.signercode)
             dsc = ''
             try:
-                dsc = Election().get_sub_reg(\
+                dsc = Election().get_sub_reg(
                     el[0]).read_string_value(['common'], 'description').value
             except:
                 dsc = el[0]
-            if voter == None:
+            if voter is None:
                 self.user_msg = EV_ERRORS.POLE_VALIJA
                 self.log_msg = "Pole valija %s, %s"  % (self.signercode, dsc)
-                raise HTSStoreException, evcommon.EVOTE_ERROR
+                raise HTSStoreException(evcommon.EVOTE_ERROR)
             if max_votes_per_voter:
                 if self._count_votes(el[0]) >= max_votes_per_voter:
                     self.user_msg = EV_ERRORS.TEHNILINE_VIGA
 
                     self.log_msg = self.user_msg
-                    raise HTSStoreException, evcommon.EVOTE_ERROR
+                    raise HTSStoreException(evcommon.EVOTE_ERROR)
 
             self.actions.append([_hts, voter, el[1]])
 
@@ -210,7 +215,7 @@ class HTSStore:
 
         rreg.create_string_value(key, "voter", self.signercode)
         rreg.create_integer_value(key, "timestamp", int(time.time()))
-        rreg.create_integer_value(key, "count", \
+        rreg.create_integer_value(key, "count",
                 Election().get_verification_count())
 
         # Store the election IDs and include a backreference in the
@@ -222,7 +227,7 @@ class HTSStore:
             sreg = Election().get_sub_reg(elid)
             skey = htscommon.get_user_key(self.signercode)
             sreg.ensure_key(skey)
-            sreg.create_string_value(skey, \
+            sreg.create_string_value(skey,
                     htscommon.VOTE_VERIFICATION_ID_FILENAME, vote_id)
 
         rreg.create_string_value(key, "elids", elids)
@@ -243,12 +248,14 @@ class HTSStore:
                 self.log_msg = \
                     'Hääle talletamisjärgne kontroll andis '\
                     'vigase tulemuse (%s)' % self.signercode
-                raise HTSStoreException, evcommon.EVOTE_ERROR
+                raise HTSStoreException(evcommon.EVOTE_ERROR)
 
 
 class HTSVerifyException(Exception):
+
     def __init__(self, ret):
         self.ret = ret
+
 
 class HTSVerify:
 
@@ -265,7 +272,7 @@ class HTSVerify:
         if not formatutil.is_vote_verification_id(vote_id):
             # We don't know how large vote_id is, so don't write to disk
             evlog.log_error("Malformed vote ID")
-            raise HTSVerifyException, evcommon.VERIFY_ERROR
+            raise HTSVerifyException(evcommon.VERIFY_ERROR)
 
         vote_id = vote_id.lower()
         otp_key = htscommon.get_verification_key(vote_id)
@@ -273,9 +280,9 @@ class HTSVerify:
         # check if corresponding OTP exists
         if not self._rreg.check(otp_key):
             evlog.log_error("No such vote ID: %s" % vote_id)
-            raise HTSVerifyException, evcommon.VERIFY_ERROR
+            raise HTSVerifyException(evcommon.VERIFY_ERROR)
 
-        self._voter_code = self._rreg.read_string_value(\
+        self._voter_code = self._rreg.read_string_value(
                 otp_key, "voter").value.rstrip()
 
         # check if timestamp is OK
@@ -285,14 +292,14 @@ class HTSVerify:
         if created + timeout < current:
             evlog.log("Vote ID %s has expired" % vote_id)
             self.__revoke_vote_id()
-            raise HTSVerifyException, evcommon.VERIFY_ERROR
+            raise HTSVerifyException(evcommon.VERIFY_ERROR)
 
         # check if count is OK
         count = self._rreg.read_integer_value(otp_key, "count").value
         if count <= 0:
             evlog.log_error("Vote ID %s count is zero, but had not been revoked")
             self.__revoke_vote_id()
-            raise HTSVerifyException, evcommon.VERIFY_ERROR
+            raise HTSVerifyException(evcommon.VERIFY_ERROR)
 
         self._vote_id = vote_id
 
@@ -310,9 +317,9 @@ class HTSVerify:
             bdoc = htsbase.get_vote(sreg.path(voter_key + [latest]))
 
         if not bdoc:
-            evlog.log_error("No valid BDOC found for voter %s using vote ID %s" % \
+            evlog.log_error("No valid BDOC found for voter %s using vote ID %s" %
                     (self._voter_code, self._vote_id))
-            raise HTSVerifyException, evcommon.VERIFY_ERROR
+            raise HTSVerifyException(evcommon.VERIFY_ERROR)
 
         return bdoc
 
@@ -332,21 +339,21 @@ class HTSVerify:
         elids = self._rreg.read_string_value(otp_key, "elids")\
                 .value.rstrip().split("\t")
         bdoc = self.__load_bdoc(random.choice(elids))
-        evlog.log("Sending BDOC %s with vote ID %s for verification" %\
-                (ksum.votehash(bdoc.get_bytes()), self._vote_id))
+        evlog.log("Sending BDOC %s with vote ID %s for verification" %
+                (ksum.votehash(bdoc.get_loaded_bytes()), self._vote_id))
 
         # check consistency
         bdoc_set = set([doc.split(".")[0] for doc in bdoc.documents])
         elids_set = set(elids)
         if bdoc_set != elids_set:
-            evlog.log_error("Votes in BDOC for vote ID %s are inconsistent " \
+            evlog.log_error("Votes in BDOC for vote ID %s are inconsistent "
                     "with registry: %s, %s" % (self._vote_id, bdoc_set, elids_set))
-            raise HTSVerifyException, evcommon.VERIFY_ERROR
+            raise HTSVerifyException(evcommon.VERIFY_ERROR)
 
         # create question objects
         questions = []
         for elid in elids:
-            questions.append(question.Question(\
+            questions.append(question.Question(
                     elid, "hts", Election().get_sub_reg(elid)))
 
         # start assembling the response
@@ -373,6 +380,7 @@ class HTSVerify:
 
         self.__decrease_count()
         return ret
+
 
 class HTSAll:
 
@@ -401,15 +409,7 @@ class HTSAll:
             fo.write('\n')
 
     def kooskolaline(self, voters_files_sha256):
-        if Election().get_root_reg().check(['common', 'voters_files_sha256']):
-            hts_voters_files_sha256 = \
-                Election().get_root_reg().read_string_value(
-                    ['common'], 'voters_files_sha256').value
-        else:
-            hts_voters_files_sha256 = ''
-        if hts_voters_files_sha256 != voters_files_sha256:
-            return False
-        return True
+        return Election().get_voters_files_sha256() == voters_files_sha256
 
     def haaletanud(self, ik):
         votes = []
@@ -417,8 +417,8 @@ class HTSAll:
         for el in lst:
             _h = htsbase.HTSBase(el)
             if _h.haaletanud(ik):
-                votes.append(\
-                    Election().get_sub_reg(el).\
+                votes.append(
+                    Election().get_sub_reg(el).
                         read_string_value(['common'], 'electionid').value)
 
         if len(votes) > 0:
@@ -467,7 +467,7 @@ class HTSAll:
                 store.revoke_vote_id()
             return e.ret, store.user_msg
 
-        evlog.log("Issued vote ID %s to %s for BDOC %s" % \
+        evlog.log("Issued vote ID %s to %s for BDOC %s" %
                 (vote_id, store.signercode, ksum.votehash(store.signed_vote)))
         return evcommon.EVOTE_OK, vote_id
 
@@ -485,15 +485,15 @@ class HTSAll:
         try:
             verifier.verify_id(vote_id)
         except HTSVerifyException as e:
-            return e.ret, EvMessage().get_str(\
+            return e.ret, EvMessage().get_str(
                     "INVALID_VOTE_ID", evstrings.INVALID_VOTE_ID)
 
         evlog.log("Verifying vote with ID %s" % vote_id)
         try:
             return evcommon.VERIFY_OK, verifier.get_response()
         except HTSVerifyException as e:
-            return e.ret, EvMessage().get_str(\
-                    "TECHNICAL_ERROR_VOTE_VERIFICATION", \
+            return e.ret, EvMessage().get_str(
+                    "TECHNICAL_ERROR_VOTE_VERIFICATION",
                     evstrings.TECHNICAL_ERROR_VOTE_VERIFICATION)
 
 

@@ -17,10 +17,10 @@ import os.path
 import xml.etree.ElementTree
 import shutil
 
-CONF_KNOWN_PARAMS = [ \
+CONF_KNOWN_PARAMS = [
     'digest.uri']
 
-CONF_NECESSARY_ELEMS = [ \
+CONF_NECESSARY_ELEMS = [
     'bdoc.conf',
     'ca',
     'ocsp',
@@ -29,6 +29,7 @@ CONF_NECESSARY_ELEMS = [ \
     'schema/XAdES.xsd',
     'schema/xmldsig-core-schema.xsd',
     'schema/XMLSchema.dtd']
+
 
 class BDocConfig:
 
@@ -43,40 +44,39 @@ class BDocConfig:
     def _handle_ocsp(self, elems):
         for _el in elems:
             if len(_el) != 4:
-                raise Exception, 'Invalid OCSP configuration'
+                raise Exception('Invalid OCSP configuration')
 
             if (_el[0].tag != 'url') or (_el[1].tag != 'cert'):
-                raise Exception, 'Invalid OCSP configuration - tag'
+                raise Exception('Invalid OCSP configuration - tag')
 
             if (_el[2].tag != 'skew') or (_el[3].tag != 'maxAge'):
-                raise Exception, 'Invalid OCSP configuration - tag'
+                raise Exception('Invalid OCSP configuration - tag')
 
             if (not 'issuer' in _el.attrib) or (len(_el.attrib) != 1):
-                raise Exception, 'Invalid OCSP configuration - issuer'
+                raise Exception('Invalid OCSP configuration - issuer')
 
             _certf = os.path.join(self.__root, 'ocsp', _el[1].text)
 
             if not os.access(_certf, os.F_OK):
-                raise Exception, 'Invalid OCSP configuration - cert %s' % _certf
+                raise Exception('Invalid OCSP configuration - cert %s' % _certf)
 
             if not os.access(_certf, os.R_OK):
-                raise Exception, 'Invalid OCSP configuration - cert'
+                raise Exception('Invalid OCSP configuration - cert')
 
-            self.__ocsp[_el.attrib['issuer']] = {'url': _el[0].text, \
-                                                'cert': _el[1].text, \
-                                                'skew': long(_el[2].text), \
+            self.__ocsp[_el.attrib['issuer']] = {'url': _el[0].text,
+                                                'cert': _el[1].text,
+                                                'skew': long(_el[2].text),
                                                 'maxAge': long(_el[3].text)}
 
     def _handle_param(self, elems):
         for _el in elems:
             if (not 'name' in _el.attrib) or (len(_el.attrib) != 1):
-                raise Exception, 'Invalid parameter configuration'
+                raise Exception('Invalid parameter configuration')
 
             if not _el.attrib['name'] in CONF_KNOWN_PARAMS:
-                raise Exception, 'Invalid parameter configuration'
+                raise Exception('Invalid parameter configuration')
 
             self.__param[_el.attrib['name']] = _el.text
-
 
     def save(self, dirname):
         import stat
@@ -92,17 +92,16 @@ class BDocConfig:
             for name in dirs:
                 os.chmod(os.path.join(root, name), dmode)
 
-
     def load(self, dirname):
         self.__root = dirname
 
         for _el in CONF_NECESSARY_ELEMS:
             _path = os.path.join(self.__root, _el)
             if not os.access(_path, os.F_OK):
-                raise Exception, "Missing conf item \"%s\"" % _el
+                raise Exception("Missing conf item \"%s\"" % _el)
 
             if not os.access(_path, os.R_OK):
-                raise Exception, "Missing conf item \"%s\"" % _el
+                raise Exception("Missing conf item \"%s\"" % _el)
 
         _tree = xml.etree.ElementTree.ElementTree()
         _tree.parse(os.path.join(self.__root, 'bdoc.conf'))
@@ -113,14 +112,13 @@ class BDocConfig:
         _param_elems = _tree.getiterator('param')
         self._handle_param(_param_elems)
 
-
     def _ocsp_cert_path(self, el):
         return os.path.join(self.__root, 'ocsp', self.__ocsp[el]['cert'])
 
     def populate(self, ver):
         for el in self.__ocsp:
-            ver.addOCSPConf(el, self.__ocsp[el]['url'], \
-                self._ocsp_cert_path(el), \
+            ver.addOCSPConf(el, self.__ocsp[el]['url'],
+                self._ocsp_cert_path(el),
                 self.__ocsp[el]['skew'], self.__ocsp[el]['maxAge'])
 
         ver.setSchemaDir(os.path.join(self.__root, 'schema'))
@@ -139,8 +137,6 @@ class BDocConfig:
             path = self._ocsp_cert_path(el)
             ret[url] = path
         return ret
-
-
 
 
 if __name__ == '__main__':

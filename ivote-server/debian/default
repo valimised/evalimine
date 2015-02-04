@@ -2,7 +2,7 @@
 
 EVREG_CONFIG=/var/evote/registry
 EVREG_BIN=/usr/lib/python2.7/dist-packages
-LANG=et_EE
+LANG=et_EE.utf-8
 
 # less
 

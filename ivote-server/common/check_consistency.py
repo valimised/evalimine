@@ -17,6 +17,7 @@ import evcommon
 import exception_msg
 import hesdisp
 
+
 def check_consistency():
     hes = hesdisp.HESDispatcher()
     res, msg = hes.hts_consistency_check()

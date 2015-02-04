@@ -14,6 +14,7 @@ http://creativecommons.org/licenses/by-nc-nd/3.0/.
 
 import sys
 from election import Election
+import evcommon
 import config_common
 import init_conf
 import regrights
@@ -24,11 +25,11 @@ import bdocconfig
 import bdocpython
 import bdocpythonutils
 
-required = ["*.mobidurl", "*.mobidservice", "*.mobidauthmsg", \
-        "*.mobidsignmsg", "*.hts", "*.verifytimeout", "*.verifymaxtries", \
-        "*.elections"]
+required = ["*.mobidurl", "*.mobidservice", "*.mobidauthmsg",
+        "*.mobidsignmsg", "*.hts", "*.verifytimeout", "*.verifymaxtries",
+        "*.sessionlength", "*.elections"]
 
-election_required= ["voters", "choices", "districts", "type", "description"]
+election_required= ["voters", "voterskey", "choices", "districts", "type", "description"]
 election_optional= ["ALL", "VALIK", "JAOSK", "TYHIS"]
 
 def add_right(rr, right, persons):
@@ -39,9 +40,9 @@ def add_right(rr, right, persons):
 def manage_rights(el, conf):
     rr = regrights.Rights(el)
     for right in ["TYHIS", "VALIK", "JAOSK"]:
-        if conf.has_key(right):
+        if right in conf:
             add_right(rr, right, conf[right])
-    if conf.has_key("ALL"):
+    if "ALL" in conf:
         add_right(rr, "TYHIS", conf["ALL"])
         add_right(rr, "VALIK", conf["ALL"])
         add_right(rr, "JAOSK", conf["ALL"])
@@ -88,36 +89,30 @@ def read_config(lines):
     return ret_gen, ret_el
 
 
-
-
 class ElectionInstaller:
-
 
     def __init__(self):
         self.__dir = None
         self.__deldir = None
         self.__bdoc = None
 
-
     def __del__(self):
         if self.__deldir:
             shutil.rmtree(self.__deldir)
 
-
     def set_dir(self, ndir):
-        if not ndir == None:
+        if not ndir is None:
             self.__dir = ndir
         else:
             self.__dir = tempfile.mkdtemp()
             self.__deldir = self.__dir
-
 
     def process_bdoc(self, bdocfile):
         config = bdocconfig.BDocConfig()
         config.load(Election().get_bdoc_conf())
         self.__bdoc = bdocpythonutils.BDocContainer()
         self.__bdoc.load(bdocfile)
-        profile = bdocpythonutils.ManifestProfile('TM', \
+        profile = bdocpythonutils.ManifestProfile('TM',
                 'application/octet-stream')
         self.__bdoc.validate(profile)
 
@@ -138,11 +133,9 @@ class ElectionInstaller:
             return True, res.subject
         return False, res.error
 
-
     def print_contents(self):
         for el in self.__bdoc.documents:
             print el
-
 
     def extract(self):
         for el in self.__bdoc.documents:
@@ -150,12 +143,12 @@ class ElectionInstaller:
             ff.write(self.__bdoc.documents[el])
             ff.close()
 
-
     def setup(self):
         g_config = None
         e_config = None
 
         configfile = open("%s/config" % self.__dir, "r")
+        evcommon.skip_utf8_bom(configfile)
         g_config, e_config = read_config(configfile.readlines())
         configfile.close()
 
@@ -165,44 +158,46 @@ class ElectionInstaller:
             Election().set_hts_verify_path("/hts-verify-vote.cgi")
             Election().config_hth_done()
             Election().set_mid_conf(
-                    g_config["*.mobidurl"], \
-                    g_config["*.mobidservice"], \
-                    g_config["*.mobidauthmsg"], \
+                    g_config["*.mobidurl"],
+                    g_config["*.mobidservice"],
+                    g_config["*.mobidauthmsg"],
                     g_config["*.mobidsignmsg"])
+            Election().set_session_length(g_config["*.sessionlength"])
 
             for el in e_config:
-                init_conf.execute(el, e_config[el]['type'], \
+                init_conf.execute(el, e_config[el]['type'],
                         e_config[el]['description'])
 
                 manage_rights(el, e_config[el])
                 config_common.config_hes(el, \
-                        "%s/%s" % (self.__dir, e_config[el]['districts']), \
-                        "%s/%s" % (self.__dir, e_config[el]['voters']), \
-                        "%s/%s" % (self.__dir, e_config[el]['choices']))
+                        "%s/%s" % (self.__dir, e_config[el]['districts']),
+                        "%s/%s" % (self.__dir, e_config[el]['voters']),
+                        "%s/%s" % (self.__dir, e_config[el]['choices']),
+                        "%s/%s" % (self.__dir, e_config[el]['voterskey']))
 
         if Election().is_hts():
             Election().set_verification_time(g_config["*.verifytimeout"])
             Election().set_verification_count(g_config["*.verifymaxtries"])
 
             for el in e_config:
-                init_conf.execute(el, e_config[el]['type'], \
+                init_conf.execute(el, e_config[el]['type'],
                         e_config[el]['description'])
 
                 manage_rights(el, e_config[el])
-                config_common.config_hts(el, \
-                        "%s/%s" % (self.__dir, e_config[el]['districts']), \
-                        "%s/%s" % (self.__dir, e_config[el]['voters']), \
-                        "%s/%s" % (self.__dir, e_config[el]['choices']))
-
+                config_common.config_hts(el,
+                        "%s/%s" % (self.__dir, e_config[el]['districts']),
+                        "%s/%s" % (self.__dir, e_config[el]['voters']),
+                        "%s/%s" % (self.__dir, e_config[el]['choices']),
+                        "%s/%s" % (self.__dir, e_config[el]['voterskey']))
 
         if Election().is_hlr():
             for el in e_config:
-                init_conf.execute(el, e_config[el]['type'], \
+                init_conf.execute(el, e_config[el]['type'],
                         e_config[el]['description'])
 
                 manage_rights(el, e_config[el])
-                config_common.config_hlr(el, \
-                        "%s/%s" % (self.__dir, e_config[el]['districts']), \
+                config_common.config_hlr(el,
+                        "%s/%s" % (self.__dir, e_config[el]['districts']),
                         "%s/%s" % (self.__dir, e_config[el]['choices']))
 
 

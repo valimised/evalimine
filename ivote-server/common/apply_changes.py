@@ -17,6 +17,7 @@ from election import Election
 from election import ElectionState
 import evlog
 import ksum
+import sigverify
 import inputlists
 import time
 import uiutil
@@ -28,6 +29,7 @@ class BufferedLog:
     def __init__(self, log_file, app, elid):
         self.__logger = evlog.Logger(Election().get_server_str())
         self.__logger.set_logs(log_file)
+        self.__logger.set_format(evlog.ChangesLogFormat(app))
         self.__buffer = []
 
     def log_error(self, msg):
@@ -62,7 +64,7 @@ def create_tokend_file(tokend, reg, elid):
                 out += '\t'.join(tokend[el])
                 out += '\n'
 
-        if len(out) != 0:
+        if out:
             out = elid + '\n' + out
             out = '1\n' + out
             filename = reg.path(['hts', 'output', fn])
@@ -73,7 +75,7 @@ def create_tokend_file(tokend, reg, elid):
             outf = None
 
     finally:
-        if (outf != None):
+        if outf is not None:
             outf.close()
 
 
@@ -85,8 +87,8 @@ def apply_changes(elid, voter_f):
 
     def check_state():
         if not ElectionState().can_apply_changes():
-            sys.stderr.write('Selles hääletuse faasis (%s) pole võimalik '\
-                'nimekirju uuendada\n' \
+            sys.stderr.write('Selles hääletuse faasis (%s) pole võimalik '
+                'nimekirju uuendada\n'
                 % ElectionState().str())
             sys.exit(1)
 
@@ -101,8 +103,8 @@ def apply_changes(elid, voter_f):
         else:
             raise Exception('Vigane serveritüüp')
 
-        buflog = BufferedLog(Election(). \
-                get_path(evcommon.VOTER_LIST_LOG_FILE), \
+        buflog = BufferedLog(Election().
+                get_path(evcommon.VOTER_LIST_LOG_FILE),
                 'APPLY-CHANGES', elid)
 
         check_state()
@@ -115,14 +117,17 @@ def apply_changes(elid, voter_f):
         evlog.AppLog().set_app('APPLY-CHANGES')
         vl.attach_logger(evlog.AppLog())
 
-        print "Kontrollin valijate faili kontrollsummat"
-        if not ksum.check(voter_f):
-            raise Exception('Valijate faili kontrollsumma ei klapi\n')
+        print "Kontrollin valijate faili terviklikkust"
+        checkResult = sigverify.check_existent(voter_f, elid)
+        if not checkResult[0]:
+            raise Exception('Kontrollimisel tekkis viga: %s\n' % checkResult[1])
+        else:
+            print "Valijate faili terviklikkus OK"
 
         voters_file_sha256 = ksum.compute(voter_f)
-        if Election().get_root_reg().check(\
+        if Election().get_root_reg().check(
             ['common', 'voters_file_hashes', voters_file_sha256]):
-            raise Exception('Kontrollsummaga %s fail on juba laetud\n' \
+            raise Exception('Kontrollsummaga %s fail on juba laaditud\n'
                 % voters_file_sha256)
 
         if not vl.check_format(voter_f, 'Kontrollin valijate nimekirja: '):
@@ -132,8 +137,8 @@ def apply_changes(elid, voter_f):
             print 'Valijate nimekiri OK'
 
         vl.attach_logger(buflog)
-        if not vl.check_muudatus( \
-            'Kontrollin muudatuste kooskõlalisust: ', \
+        if not vl.check_muudatus(
+            'Kontrollin muudatuste kooskõlalisust: ',
             ElectionState().election_on(), tokend):
             print "Sisend ei ole kooskõlas olemasoleva konfiguratsiooniga"
         else:
@@ -143,7 +148,7 @@ def apply_changes(elid, voter_f):
         if not buflog.empty():
             print 'Muudatuste sisselaadimisel esines vigu'
             buflog.output_errors()
-            _apply = uiutil.ask_yes_no(\
+            _apply = uiutil.ask_yes_no(
             'Kas rakendan kooskõlalised muudatused?')
 
         if not _apply:
@@ -155,7 +160,9 @@ def apply_changes(elid, voter_f):
             a_count, d_count = vl.create('Paigaldan valijaid: ')
             print 'Teostasin %d lisamist ja %d eemaldamist' \
                 % (a_count, d_count)
-            Election().copy_voters_file(elid, root, voter_f)
+            Election().copy_config_file(
+                elid, root, voter_f, evcommon.VOTERS_FILES)
+            Election().add_voters_file_hash(voter_f)
             print 'Muudatuste rakendamine lõppes edukalt'
 
     except SystemExit:
@@ -164,21 +171,21 @@ def apply_changes(elid, voter_f):
             buflog.output_errors()
         raise
 
-    except Exception, ex:
+    except Exception as ex:
         sys.stderr.write('Viga muudatuste laadimisel: ' + str(ex) + '\n')
         if buflog:
             buflog.output_errors()
         sys.exit(1)
 
     finally:
-        if not vl == None:
+        if vl is not None:
             vl.close()
 
 
 def usage():
 
-    if (len(sys.argv) != 3):
-        sys.stderr.write('Kasutamine: ' + sys.argv[0] + \
+    if len(sys.argv) != 3:
+        sys.stderr.write('Kasutamine: ' + sys.argv[0] +
             ' <valimiste-id> <valijate-fail>\n')
         sys.exit(1)
 

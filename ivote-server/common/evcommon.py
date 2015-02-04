@@ -13,6 +13,7 @@ http://creativecommons.org/licenses/by-nc-nd/3.0/.
 """
 
 import sys
+import codecs
 
 if sys.version_info[0] != 2 or sys.version_info[1] != 7:
     raise Exception(
@@ -21,7 +22,7 @@ if sys.version_info[0] != 2 or sys.version_info[1] != 7:
 
 
 def testrun():
-    return (None <> os.environ.get('IVOTE_TEST_RUN'))
+    return (None != os.environ.get('IVOTE_TEST_RUN'))
 
 VERSION = "1"
 
@@ -55,7 +56,7 @@ POST_PHONENO = "phone"
 POST_MID_POLL = "poll"
 
 # Verification protocol
-POST_VERIFY_VOTE = "vote"
+POST_VERIFY_VOTE = "verify"
 
 # VR <-> HES protokolli tagastusväärtused
 # Samad koodid ka talletusprotokollis HES <-> HTS
@@ -93,6 +94,7 @@ VERIFY_ERROR = '1'
 
 COMMON = "common"
 BDOC = "common/bdoc"
+IDSPOOL = "idspool"
 MIDSPOOL = "midspool"
 
 TYPE_RH = 0
@@ -133,25 +135,12 @@ STATUSREPORT_FILE = "hts_vaheauditi_aruanne"
 REVREPORT_FILE = "tuhistamiste_ennistamiste_aruanne"
 REVREPORT_SHA256_FILE = "tuhistamiste_ennistamiste_aruanne.sha256"
 
-LOG1_STR = "Vastuvõetud häälte logi (Log1)"
-LOG2_STR = "Tühistatud häälte logi (Log2)"
-LOG3_STR = "Lugemisele minevate häälte logi (Log3)"
-LOG4_STR = "Kehtetute häälte logi (Log4)"
-LOG5_STR = "Arvestatud häälte logi (Log5)"
-APPLICATION_LOG_STR = "Rakenduse logi"
-ERROR_LOG_STR = "Vigade logi"
-DEBUG_LOG_STR = "Turvalogi"
-OCSP_LOG_STR = "OCSP saadavuse logi"
-VOTER_LIST_LOG_STR = "Valijate nimekirjade vigade logi"
-REVLOG_STR = "Tühistamiste ja ennistamiste aruanne"
-ELECTIONRESULT_ZIP_STR = "Hääletamistulemus (allkirjadega)"
-ELECTIONRESULT_STR = "Hääletamistulemus (ringkondade kaupa)"
-ELECTIONRESULT_STAT_STR = "Hääletamistulemus (jaoskondade kaupa)"
-ELECTIONS_RESULT_STR = "Loendamisele minevate häälte nimekiri"
-ELECTORSLIST_STR = "E-hääletanute nimekiri"
-ELECTORSLIST_PDF_STR = "E-hääletanute nimekiri (PDF)"
-STATUSREPORT_STR = "Vaheauditi aruanne"
-REVREPORT_STR = "Tühistus-/ennistusavalduse impordi aruanne"
+VOTERS_FILES = "voters_files"
+CANDIDATE_FILES = "candidate_files"
+DISTRICT_FILES = "district_files"
+
+#Muud failid
+VOTER_PUBLIC_KEY = "voter_public_key.pem"
 
 # konfigureerimist träkkivad lipud
 INIT_CONF_DONE = "init_conf_done"
@@ -172,21 +161,31 @@ try:
 except KeyError:
     EVREG_CONFIG = '/var/evote/registry'
 
+
 def burn_buff():
     return os.path.join(os.environ["HOME"], "burn_buff")
 
+
 def checkfile(filename):
     if not os.access(filename, os.F_OK):
-        sys.stderr.write('Faili ' + filename + ' ei eksisteeri\n')
+        sys.stderr.write('Faili ' + filename + ' pole olemas\n')
         sys.exit(1)
     if not os.access(filename, os.R_OK):
-        sys.stderr.write('Faili ' + filename + ' ei saa lugeda\n')
+        sys.stderr.write('Faili ' + filename + ' pole võimalik lugeda\n')
         sys.exit(1)
 
 
 def touch_file(path):
     touch_f = file(path, 'w')
     touch_f.close()
+
+
+def skip_utf8_bom(fd):
+    # Skip the UTF-8 BOM bytes if there are any.
+    if not fd.read(len(codecs.BOM_UTF8)) == codecs.BOM_UTF8:
+        # No BOM bytes found, seek back to the beginning.
+        fd.seek(0)
+
 
 def file_cmp(a, b, prefix): # pylint: disable=C0103
     if a == b:
@@ -202,11 +201,14 @@ def file_cmp(a, b, prefix): # pylint: disable=C0103
     bi = int(b.split('.')[2])
     return ai - bi
 
+
 def access_cmp(a, b): # pylint: disable=C0103
     return file_cmp(a, b, 'access.log')
 
+
 def error_cmp(a, b): # pylint: disable=C0103
     return file_cmp(a, b, 'error.log')
+
 
 def get_apache_log_files():
     accesslog = []

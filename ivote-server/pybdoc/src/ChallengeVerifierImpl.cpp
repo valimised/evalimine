@@ -12,11 +12,14 @@
  * */
 
 #include <string.h>
-#include <openssl/pem.h>
+
+#include <openssl/err.h>
+#include <openssl/evp.h>
+#include <openssl/x509.h>
 
 #include "ChallengeVerifierImpl.h"
+#include "crypto/X509Cert.h"
 
-#define ASN_DIGEST_INFO_LEN	15
 #define CHALLENGE_LEN		20
 
 ChallengeVerifierImpl::ChallengeVerifierImpl()
@@ -30,81 +33,37 @@ ChallengeVerifierImpl::~ChallengeVerifierImpl()
 
 bool ChallengeVerifierImpl::isChallengeOk()
 {
-	// PKCS#1 DigestInfo ASN1, in case of obj-id sha1
-	unsigned char asn1[ASN_DIGEST_INFO_LEN] = {
-		0x30, 0x21, 0x30, 0x09, 0x06, 0x05, 0x2b, 0x0e,
-		0x03, 0x02, 0x1a, 0x05, 0x00, 0x04, 0x14
-	};
-
-	bool ret = false;
-	EVP_PKEY *pkey = NULL;
-	RSA *rsa = NULL;
-	unsigned char *rsa_out = NULL;
-	int rsa_outlen = 0;
-	int keysize = 0;
-		X509 *x = NULL;
-
-	const unsigned char *buf = certificate.peek();
-	x = d2i_X509(NULL, &buf, certificate.len());
-	if (x == NULL) {
-		error = "Error decoding certificate";
-		goto end;
-		}
-
-	pkey = X509_get_pubkey(x);
-	if (pkey == NULL) {
-		error = "Error decoding public key";
-		goto end;
-	}
-
-	rsa = EVP_PKEY_get1_RSA(pkey);
-	if (rsa == NULL) {
-		error = "Error extracting RSA from public key";
-		goto end;
-	}
-
-	keysize = RSA_size(rsa);
-	rsa_out = (unsigned char*)OPENSSL_malloc(keysize);
-	if (rsa_out == NULL) {
-		error = "Out of memory";
-		goto end;
-	}
-
-	rsa_outlen  = RSA_public_decrypt(signature.len(), \
-						signature.peek(), rsa_out, \
-						rsa, RSA_PKCS1_PADDING);
-	if (rsa_outlen <= 0) {
-		error = "Error in decryption";
-		goto end;
-	}
-
-	if (rsa_outlen != (ASN_DIGEST_INFO_LEN + CHALLENGE_LEN)) {
-		error = "Result length not correct";
-		goto end;
-	}
-
-	if (memcmp(rsa_out, asn1, ASN_DIGEST_INFO_LEN)) {
-		error = "Result ASN not correct";
-		goto end;
-	}
+	const unsigned char *certp;
+	X509 *x509 = NULL;
+	bool ok = false;
 
 	if (challenge.len() != CHALLENGE_LEN) {
 		error = "Invalid input challenge";
 		goto end;
 	}
 
-	if (memcmp(rsa_out + ASN_DIGEST_INFO_LEN, \
-					challenge.peek(), CHALLENGE_LEN)) {
-		error = "Invalid challenge verification result";
+	certp = certificate.peek();
+	x509 = d2i_X509(NULL, &certp, certificate.len());
+	if (!x509) {
+		error = "Error decoding certificate: ";
+		error += ERR_reason_error_string(ERR_get_error());
 		goto end;
 	}
 
-	ret = true;
-	end:
-	if (x) X509_free(x);
-	if (rsa) RSA_free(rsa);
-	if (rsa_out) OPENSSL_free(rsa_out);
-	if (pkey) EVP_PKEY_free(pkey);
-	return ret;
-}
+	{
+		bdoc::X509Cert x509cert(x509);
+		std::vector<unsigned char> digest(
+				challenge.peek(), challenge.peek() + challenge.len());
+		std::vector<unsigned char> sig(
+				signature.peek(), signature.peek() + signature.len());
 
+		const EVP_MD *md = EVP_sha1();
+		ok = x509cert.verifySignature(EVP_MD_type(md), EVP_MD_size(md),
+				digest, sig);
+	}
+
+	end:
+	if (x509) X509_free(x509);
+
+	return ok;
+}

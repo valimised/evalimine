@@ -17,6 +17,7 @@ import evcommon
 import evlog
 import evlogdata
 
+
 def get_loglines(prefix):
     to_alog = []
     to_elog = []
@@ -34,12 +35,14 @@ def get_loglines(prefix):
 
     return to_alog, to_elog
 
+
 def do_log(prefix):
     alog, elog = get_loglines(prefix)
     for el in alog:
         evlog.log(el)
     for el in elog:
         evlog.log_error(el)
+
 
 def do_log_error(prefix):
     alog, elog = get_loglines(prefix)

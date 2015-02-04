@@ -12,8 +12,11 @@ To view a copy of this license, visit
 http://creativecommons.org/licenses/by-nc-nd/3.0/.
 """
 
-### depends on debian package python-psutil
-import os, time, psutil, syslog
+# depends on debian package python-psutil
+import os
+import time
+import psutil
+import syslog
 
 if __name__ == "__main__":
     ts = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())
@@ -25,8 +28,8 @@ if __name__ == "__main__":
     net_io = psutil.network_io_counters(pernic=True)
 
     lines = []
-    lines.append("%s: ldavg:%s mem:%s%% vmem:%s%% disk:%s%%" % \
-            (ts, ldavg, mem, vmem, disk))
+    lines.append("%s: ldavg:%s mem:%s%% vmem:%s%% disk:%s%%" %
+                 (ts, ldavg, mem, vmem, disk))
 
     for disk in disk_io:
         lines.append("%s: %s %s" % (ts, disk, str(disk_io[disk])))

@@ -17,6 +17,7 @@ import binascii
 import httplib
 import base64
 import StringIO
+import time
 
 from DigiDocService_client import *
 from DigiDocService_types import ns0 as ddstypes
@@ -27,11 +28,13 @@ import evlog
 import evlogdata
 import sessionid
 import evcommon
+import evmessage
 import protocol
 import hesdisp
+import formatutil
+
 
 def get_mid_text(status):
-    import evmessage
 
     if status == 'MID_NOT_READY':
         return evmessage.EV_ERRORS.MID_NOT_READY
@@ -51,14 +54,14 @@ def get_mid_text(status):
     elif status == 'MID_ERROR_301':
         return evmessage.EV_ERRORS.MID_ERROR_301
 
-    elif status in ['MID_ERROR_302', 'REVOKED', 'SUSPENDED']:
+    elif status in ['MID_ERROR_302', 'REVOKED', 'SUSPENDED',
+                    'REVOKED_CERTIFICATE']:
         return evmessage.EV_ERRORS.MID_ERROR_302
 
     elif status in ['MID_ERROR_303', 'NOT_ACTIVATED']:
         return evmessage.EV_ERRORS.MID_ERROR_303
 
     return evmessage.EV_ERRORS.MID_UNKNOWN_ERROR
-
 
 
 def mobid_vote_data(b64vote):
@@ -75,7 +78,7 @@ def mobid_vote_data(b64vote):
         bdoc.validateflex()
         _doc_count = len(bdoc.documents)
         if _doc_count == 0:
-            raise Exception, "BDoc ei sisalda ühtegi andmefaili"
+            raise Exception("BDoc ei sisalda ühtegi andmefaili")
         ret = {}
         for el in bdoc.documents:
             evlog.log(evlogdata.get_vote(el, bdoc.documents[el]))
@@ -84,8 +87,9 @@ def mobid_vote_data(b64vote):
         return ret
 
     finally:
-        if bdocfile != None:
+        if bdocfile is not None:
             bdocfile.close()
+
 
 def vote_with_signature(b64data, escaped_signature):
     import zipfile
@@ -111,6 +115,7 @@ def vote_with_signature(b64data, escaped_signature):
     signedbdoczip.close()
     bdoczip.close()
     return base64.b64encode(signedbdocdata.getvalue())
+
 
 def challenge_ok(b64cert, mychal, ourchal, signature):
 
@@ -139,7 +144,6 @@ def challenge_ok(b64cert, mychal, ourchal, signature):
     return True, None
 
 
-
 class MobileIDContext:
 
     phoneno = None
@@ -152,7 +156,7 @@ class MobileIDContext:
     __reg = None
 
     def __init__(self, sessid):
-        if sessid == None:
+        if sessid is None:
             raise Exception('Puuduv sessiooniidentifikaator')
         self.__sessid = sessid
         self.__reg = Election().get_root_reg()
@@ -171,88 +175,96 @@ class MobileIDContext:
         self.origvote = hv
 
     def get_origvote(self):
-        self.origvote = self.__reg.read_value(\
-                            [evcommon.MIDSPOOL, self.__sessid], \
-                                                    'origvote').value
+        self.origvote = self.__reg.read_value(
+            [evcommon.MIDSPOOL, self.__sessid],
+            'origvote').value
         return self.origvote
 
     def add_votefile(self, filename, data):
         self.votefiles[filename] = data
 
     def get_votefiles(self):
-        for key in self.__reg.list_keys([evcommon.MIDSPOOL, self.__sessid, \
-                'votefiles']):
-            self.votefiles[key] = self.__reg.read_value(\
-                    [evcommon.MIDSPOOL, self.__sessid, 'votefiles'], key).value
+        for key in self.__reg.list_keys([evcommon.MIDSPOOL, self.__sessid,
+                                         'votefiles']):
+            self.votefiles[key] = self.__reg.read_value(
+                [evcommon.MIDSPOOL, self.__sessid, 'votefiles'], key).value
         return self.votefiles
 
     def generate_challenge(self):
         self.challenge = binascii.b2a_hex(os.urandom(10))
 
     def verify_challenge(self, signature):
-        return challenge_ok(self.certificate(), self.mychallenge(), \
+        return challenge_ok(self.certificate(), self.mychallenge(),
                             self.ourchallenge(), signature)
 
     def mychallenge(self):
-        return self.__reg.read_value(\
-                            [evcommon.MIDSPOOL, self.__sessid], \
-                                    'mychallenge').value
+        return self.__reg.read_value(
+            [evcommon.MIDSPOOL, self.__sessid], 'mychallenge').value
 
     def ourchallenge(self):
-        return self.__reg.read_value(\
-                            [evcommon.MIDSPOOL, self.__sessid], \
-                                    'ourchallenge').value
+        return self.__reg.read_value(
+            [evcommon.MIDSPOOL, self.__sessid], 'ourchallenge').value
 
     def certificate(self):
-        return self.__reg.read_value(\
-                            [evcommon.MIDSPOOL, self.__sessid], \
-                                    'cert').value
+        return self.__reg.read_value(
+            [evcommon.MIDSPOOL, self.__sessid], 'cert').value
 
     def set_auth_succ(self):
         self.__reg.ensure_key([evcommon.MIDSPOOL, self.__sessid, 'authsucc'])
 
     def auth_succ(self):
-        return self.__reg.check(\
-                [evcommon.MIDSPOOL, self.__sessid, 'authsucc'])
+        return self.__reg.check(
+            [evcommon.MIDSPOOL, self.__sessid, 'authsucc'])
+
+    def check_session(self):
+        if not self.__reg.check([evcommon.MIDSPOOL, self.__sessid]):
+            return False
+        start = self.__reg.read_integer_value(
+            [evcommon.MIDSPOOL, self.__sessid], 'start').value
+        length = Election().get_session_length() * 60
+        return start + length >= int(time.time()) and self.auth_succ()
 
     def save_post_auth(self, rsp):
 
         self.__reg.reset_key([evcommon.MIDSPOOL, self.__sessid])
-        self.__reg.create_value([evcommon.MIDSPOOL, self.__sessid], \
-                        'cert', rsp._CertificateData)
+        self.__reg.create_value([evcommon.MIDSPOOL, self.__sessid],
+                                'cert', rsp._CertificateData)
 
-        self.__reg.create_value([evcommon.MIDSPOOL, self.__sessid], \
-                        'phone', self.phoneno)
+        self.__reg.create_value([evcommon.MIDSPOOL, self.__sessid],
+                                'phone', self.phoneno)
 
-        self.__reg.create_value([evcommon.MIDSPOOL, self.__sessid], \
-                        'midsess', rsp._Sesscode)
+        self.__reg.create_value([evcommon.MIDSPOOL, self.__sessid],
+                                'midsess', rsp._Sesscode)
 
-        self.__reg.create_value([evcommon.MIDSPOOL, self.__sessid], \
-                        'mychallenge', self.challenge)
+        self.__reg.create_value([evcommon.MIDSPOOL, self.__sessid],
+                                'mychallenge', self.challenge)
 
-        self.__reg.create_value([evcommon.MIDSPOOL, self.__sessid], \
-                        'ourchallenge', rsp._Challenge)
+        self.__reg.create_value([evcommon.MIDSPOOL, self.__sessid],
+                                'ourchallenge', rsp._Challenge)
+
+        self.__reg.create_integer_value([evcommon.MIDSPOOL, self.__sessid],
+                                        'start', int(time.time()))
 
     def load_pre_sign(self):
-        self.phoneno = self.__reg.read_value(\
-                [evcommon.MIDSPOOL, self.__sessid], 'phone').value
+        self.phoneno = self.__reg.read_value(
+            [evcommon.MIDSPOOL, self.__sessid], 'phone').value
 
     def save_post_sign(self, midsess):
-        self.__reg.create_value([evcommon.MIDSPOOL, self.__sessid], \
-                        'midsess', midsess)
+        self.__reg.create_value(
+            [evcommon.MIDSPOOL, self.__sessid], 'midsess', midsess)
 
-        self.__reg.create_value([evcommon.MIDSPOOL, self.__sessid], \
-                        'origvote', self.origvote)
+        self.__reg.create_value(
+            [evcommon.MIDSPOOL, self.__sessid], 'origvote', self.origvote)
 
         self.__reg.ensure_key([evcommon.MIDSPOOL, self.__sessid, 'votefiles'])
         for el in self.votefiles:
-            self.__reg.create_value(\
-                    [evcommon.MIDSPOOL, self.__sessid, 'votefiles'],\
-                    el, self.votefiles[el])
+            self.__reg.create_value(
+                [evcommon.MIDSPOOL, self.__sessid, 'votefiles'],
+                el, self.votefiles[el])
 
     def load_pre_poll(self):
-        self.midsess = int(self.__reg.read_value(\
-                [evcommon.MIDSPOOL, self.__sessid], 'midsess').value)
+        self.midsess = int(self.__reg.read_value(
+            [evcommon.MIDSPOOL, self.__sessid], 'midsess').value)
 
 
 class MobileIDService:
@@ -272,7 +284,7 @@ class MobileIDService:
         loc = DigiDocServiceLocator()
         # self.fp = open('/tmp/debug.out', 'a')
         # kw = { 'tracefile': self.fp }
-        kw = { }
+        kw = {}
         self.srv = loc.getDigiDocService(self.url, **kw)
 
     def add_file(self, name, data):
@@ -282,13 +294,15 @@ class MobileIDService:
         return len(self.dfs)
 
     def init_auth(self, ctx):
-        request = MobileAuthenticate(\
-                PhoneNo = ctx.phoneno, \
-                Language = ctx.lang, \
-                ServiceName = self.name, MessageToDisplay = self.auth_msg, \
-                SPChallenge = ctx.challenge, \
-                MessagingMode = 'asynchClientServer', ReturnCertData = True, \
-                ReturnRevocationData = True)
+        request = MobileAuthenticate(
+            PhoneNo=ctx.phoneno,
+            Language=ctx.lang,
+            ServiceName=self.name,
+            MessageToDisplay=self.auth_msg,
+            SPChallenge=ctx.challenge,
+            MessagingMode='asynchClientServer',
+            ReturnCertData=True,
+            ReturnRevocationData=True)
 
         return self.srv.MobileAuthenticate(request)
 
@@ -298,26 +312,27 @@ class MobileIDService:
         datafiles = ddstypes.DataFileDigestList_Def("DataFiles")
         datafiles._DataFileDigest = []
         for el in self.dfs:
-            digest = hashlib.sha256(self.dfs[el]).digest() # pylint: disable=E1101
+            digest = hashlib.sha256(
+                self.dfs[el]).digest()  # pylint: disable=E1101
 
             datafile = ddstypes.DataFileDigest_Def("DataFileDigest")
-            datafile._Id = el
+            datafile._Id = "/" + el
             datafile._DigestType = "sha256"
             datafile._DigestValue = base64.b64encode(digest)
 
             datafiles._DataFileDigest.append(datafile)
 
-        req = MobileCreateSignature(\
-                SignersCountry = "EE", \
-                PhoneNo = ctx.phoneno, \
-                Language = ctx.lang, \
-                ServiceName = self.name, \
-                MessageToDisplay = self.sign_msg, \
-                DataFiles = datafiles, \
-                Format = "BDOC", \
-                Version = "2.1", \
-                SignatureID = "S0", \
-                MessagingMode = "asynchClientServer")
+        req = MobileCreateSignature(
+            SignersCountry="EE",
+            PhoneNo=ctx.phoneno,
+            Language=ctx.lang,
+            ServiceName=self.name,
+            MessageToDisplay=self.sign_msg,
+            DataFiles=datafiles,
+            Format="BDOC",
+            Version="2.1",
+            SignatureID="S0",
+            MessagingMode="asynchClientServer")
         rsp = self.srv.MobileCreateSignature(req)
 
         if rsp._Status != 'OK':
@@ -326,13 +341,15 @@ class MobileIDService:
         return True, rsp._Sesscode, rsp._ChallengeID
 
     def poll_auth(self, ctx):
-        request = GetMobileAuthenticateStatus(\
-                Sesscode = ctx.midsess, WaitSignature = False)
+        request = GetMobileAuthenticateStatus(
+            Sesscode=ctx.midsess,
+            WaitSignature=False)
         return self.srv.GetMobileAuthenticateStatus(request)
 
     def poll_sign(self, ctx):
-        req = GetMobileCreateSignatureStatus(\
-                Sesscode = ctx.midsess, WaitSignature = False)
+        req = GetMobileCreateSignatureStatus(
+            Sesscode=ctx.midsess,
+            WaitSignature=False)
         rsp = self.srv.GetMobileCreateSignatureStatus(req)
 
         return rsp._Status, rsp._Signature
@@ -370,24 +387,23 @@ class MIDDispatcher:
         # 201 comes from GetMobileCertificate
         # both mean that the user is not MID client
         if fault.startswith('301') or fault.startswith('201'):
-            return self.__return_error(evcommon.EVOTE_MID_ERROR, \
-                                            get_mid_text('MID_ERROR_301'))
+            return self.__return_error(
+                evcommon.EVOTE_MID_ERROR, get_mid_text('MID_ERROR_301'))
 
         elif fault.startswith('302'):
-            return self.__return_error(evcommon.EVOTE_MID_ERROR, \
-                                            get_mid_text('MID_ERROR_302'))
+            return self.__return_error(
+                evcommon.EVOTE_MID_ERROR, get_mid_text('MID_ERROR_302'))
 
         elif fault.startswith('303'):
-            return self.__return_error(evcommon.EVOTE_MID_ERROR, \
-                                            get_mid_text('MID_ERROR_303'))
+            return self.__return_error(
+                evcommon.EVOTE_MID_ERROR, get_mid_text('MID_ERROR_303'))
 
-        return self.__return_error(evcommon.EVOTE_MID_ERROR, \
-                                            get_mid_text('MID_UNKNOWN_ERROR'))
+        return self.__return_error(
+            evcommon.EVOTE_MID_ERROR, get_mid_text('MID_UNKNOWN_ERROR'))
 
     def __return_mid_error(self, status):
-        return self.__return_error(evcommon.EVOTE_MID_ERROR, \
-                                            get_mid_text(status))
-
+        return self.__return_error(
+            evcommon.EVOTE_MID_ERROR, get_mid_text(status))
 
     def __return_badstatusline_error(self, exc):
         evlog.log_error('Vigane HTTP status-line: "%s"' % exc.line)
@@ -396,8 +412,9 @@ class MIDDispatcher:
     def init_sign(self, form):
         try:
             evlog.log('Signeerimispäring: ALGUS')
-            if not self.ctx().auth_succ():
-                raise Exception('Autentimata sessioon')
+            if not self.ctx().check_session():
+                return self.__return_error(
+                    evcommon.EVOTE_ERROR, evmessage.EV_ERRORS.SEANSS_PUUDUB)
 
             self.ctx().load_pre_sign()
             service = MobileIDService()
@@ -428,15 +445,14 @@ class MIDDispatcher:
 
             return self.__return_mid_error(r2)
 
-        except httplib.BadStatusLine, exc:
+        except httplib.BadStatusLine as exc:
             return self.__return_badstatusline_error(exc)
-        except ZSI.FaultException, exc:
+        except ZSI.FaultException as exc:
             return self.__return_zsi_error(exc)
         except:
             return self.__return_exception()
         finally:
             evlog.log('Signeerimispäring: LÕPP')
-
 
     def init_auth(self, phone):
 
@@ -458,24 +474,26 @@ class MIDDispatcher:
                 self.ctx().save_post_auth(rsp)
 
                 alog, elog = evlogdata.get_cert_data_log(
-                        rsp._CertificateData, 'cand/auth', True)
+                    rsp._CertificateData, 'cand/auth', True)
 
-                evlog.log('Autentimispäring (%s, %s, %s, %s)' % \
-                    (rsp._UserIDCode, rsp._UserGivenname, \
-                    rsp._UserSurname, rsp._Challenge))
+                evlog.log('Autentimispäring (%s, %s, %s, %s)' %
+                          (rsp._UserIDCode,
+                           rsp._UserGivenname,
+                           rsp._UserSurname,
+                           rsp._Challenge))
 
                 evlog.log(alog)
                 if elog:
                     evlog.log_error(elog)
 
-                return protocol.msg_mobid_auth_init_ok(\
+                return protocol.msg_mobid_auth_init_ok(
                     self.ctx().sessid(), rsp._ChallengeID)
 
             return self.__return_mid_error(rsp._Status)
 
-        except httplib.BadStatusLine, exc:
+        except httplib.BadStatusLine as exc:
             return self.__return_badstatusline_error(exc)
-        except ZSI.FaultException, exc:
+        except ZSI.FaultException as exc:
             return self.__return_zsi_error(exc)
         except:
             return self.__return_exception()
@@ -489,7 +507,7 @@ class MIDDispatcher:
 
     def __get_candidate_list(self):
         self.__export_certificate()
-        hesd = hesdisp.HESVoterDispatcher()
+        hesd = hesdisp.HESVoterDispatcher(False)
         self.ctx().set_auth_succ()
         return hesd.get_candidate_list()
 
@@ -499,7 +517,7 @@ class MIDDispatcher:
         self.ctx().kill()
 
         vote = vote_with_signature(origvote, signature)
-        hesd = hesdisp.HESVoterDispatcher()
+        hesd = hesdisp.HESVoterDispatcher(False)
         return hesd.hts_vote(vote, origvote)
 
     def __poll_auth(self):
@@ -533,20 +551,29 @@ class MIDDispatcher:
 
         return self.__return_mid_error(r1)
 
-
-    def poll(self):
+    def poll(self, form):
 
         try:
             evlog.log('Poll: ALGUS')
             self.ctx().load_pre_poll()
 
-            if self.ctx().auth_succ():
-                return self.__poll_sign()
-            return self.__poll_auth()
+            poll_type = form.getvalue(evcommon.POST_MID_POLL)
+            if formatutil.is_mobid_poll_auth(poll_type):
+                evlog.log('Poll: authentication request')
+                return self.__poll_auth()
 
-        except httplib.BadStatusLine, exc:
+            if formatutil.is_mobid_poll_vote(poll_type):
+                if not self.ctx().auth_succ():
+                    raise Exception('Unauthenticated session')
+                evlog.log('Poll: signing request')
+                return self.__poll_sign()
+
+            # Should never happen if cgivalidator is working correctly
+            raise Exception('Bad poll type: %s' % poll_type[:20])
+
+        except httplib.BadStatusLine as exc:
             return self.__return_badstatusline_error(exc)
-        except ZSI.FaultException, exc:
+        except ZSI.FaultException as exc:
             return self.__return_zsi_error(exc)
         except:
             return self.__return_exception()

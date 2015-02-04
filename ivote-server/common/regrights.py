@@ -30,6 +30,7 @@ G_DESCS = {'TYHIS': 'Tühistus- ja ennistusnimekirja allkirjastaja',
 def get_personal_code(subj):
     return subj.partition('CN=')[2].split(',')[2].strip()
 
+
 def _proper_right(right):
     """
     Kas volitus on meile sobiv?
@@ -48,11 +49,11 @@ class VoteLog:
 
         _doc_count = len(self.bdoc.documents)
         if _doc_count == 0:
-            raise Exception, "BDoc ei sisalda ühtegi andmefaili"
+            raise Exception("BDoc ei sisalda ühtegi andmefaili")
 
     def log_signingcert(self):
         if len(self.bdoc.signatures) != 1:
-           raise Exception, "BDoc sisaldab rohkem kui ühte allkirja"
+           raise Exception("BDoc sisaldab rohkem kui ühte allkirja")
 
         _, sig_content = self.bdoc.signatures.popitem()
 
@@ -93,10 +94,10 @@ def analyze_vote(bdocdata, config):
 
     _doc_count = len(bdoc.documents)
     if _doc_count == 0:
-        raise Exception, "BDoc ei sisalda ühtegi andmefaili"
+        raise Exception("BDoc ei sisalda ühtegi andmefaili")
 
     if len(bdoc.signatures) != 1:
-        raise Exception, "BDoc sisaldab rohkem kui ühte allkirja"
+        raise Exception("BDoc sisaldab rohkem kui ühte allkirja")
 
     verifier = bdocpython.BDocVerifier()
     config.populate(verifier)
@@ -107,6 +108,7 @@ def analyze_vote(bdocdata, config):
     _, sig_content = bdoc.signatures.popitem()
     return verifier.verifyTMOffline(sig_content)
 
+
 def check_vote_hes_mobid(bdocdata, config):
 
     bdoc = bdocpythonutils.BDocContainer()
@@ -116,10 +118,10 @@ def check_vote_hes_mobid(bdocdata, config):
 
     _doc_count = len(bdoc.documents)
     if _doc_count == 0:
-        raise Exception, "BDoc ei sisalda ühtegi andmefaili"
+        raise Exception("BDoc ei sisalda ühtegi andmefaili")
 
     if len(bdoc.signatures) != 1:
-        raise Exception, "BDoc sisaldab rohkem kui ühte allkirja"
+        raise Exception("BDoc sisaldab rohkem kui ühte allkirja")
 
     verifier = bdocpython.BDocVerifier()
     config.populate(verifier)
@@ -140,10 +142,10 @@ def check_vote_hes(bdocdata, config):
 
     _doc_count = len(bdoc.documents)
     if _doc_count == 0:
-        raise Exception, "BDoc ei sisalda ühtegi andmefaili"
+        raise Exception("BDoc ei sisalda ühtegi andmefaili")
 
     if len(bdoc.signatures) != 1:
-        raise Exception, "BDoc sisaldab rohkem kui ühte allkirja"
+        raise Exception("BDoc sisaldab rohkem kui ühte allkirja")
 
     verifier = bdocpython.BDocVerifier()
     config.populate(verifier)
@@ -164,13 +166,13 @@ def kontrolli_volitusi(elid, bdocfile, volitus, config):
 
     _doc_count = len(bdoc.documents)
     if _doc_count == 0:
-        raise Exception, "BDoc ei sisalda ühtegi andmefaili"
+        raise Exception("BDoc ei sisalda ühtegi andmefaili")
 
     if _doc_count != 1:
-        raise Exception, "BDoc sisaldab %d andmefaili" % _doc_count
+        raise Exception("BDoc sisaldab %d andmefaili" % _doc_count)
 
     if len(bdoc.signatures) != 1:
-        raise Exception, "BDoc sisaldab rohkem kui ühte allkirja"
+        raise Exception("BDoc sisaldab rohkem kui ühte allkirja")
 
     verifier = bdocpython.BDocVerifier()
     config.populate(verifier)
@@ -181,10 +183,9 @@ def kontrolli_volitusi(elid, bdocfile, volitus, config):
     _, sig_content = bdoc.signatures.popitem()
 
     res = verifier.verifyTMOffline(sig_content)
-    if res.result:
-        _signercode = get_personal_code(res.subject)
-    else:
-        raise Exception, "Invalid signature %s" % res.error
+    if not res.result:
+        raise Exception("Invalid signature %s" % res.error)
+    _signercode = get_personal_code(res.subject)
 
     _rights = Rights(elid)
     if _rights.has(_signercode, volitus):
@@ -210,8 +211,8 @@ class Rights:
 
         if self.reg.check([code, 'description']):
             return self.reg.read_string_value([code], 'description').value
-        else:
-            return 'Andmed puuduvad'
+
+        return 'Andmed puuduvad'
 
     def listall(self):
         """
@@ -221,7 +222,7 @@ class Rights:
 
         ret = ''
         for ele in lst:
-            ret = ret + '\n' + self.listuser(ele)
+            ret += '\n' + self.listuser(ele)
         return ret.strip()
 
     def _create_user(self, code):
@@ -315,14 +316,13 @@ class Rights:
 
         ret = ''
         if self.reg.check([code]):
-            ret = ret + code
-            ret = ret + ' (' + self.descr(code) + ')'
+            ret += code + ' (%s)' % self.descr(code)
             sub_list = self.reg.list_keys([code, 'rights'])
             if len(sub_list) > 0:
                 for _s in sub_list:
-                    ret = ret + '\n\t' + G_DESCS[_s]
+                    ret += '\n\t' + G_DESCS[_s]
             else:
-                ret = ret + '\n\tVolitused puuduvad'
+                ret += '\n\tVolitused puuduvad'
         return ret.strip()
 
 
@@ -360,8 +360,8 @@ def main_function():
     if len(sys.argv) < 3:
         usage()
 
-    if not ((sys.argv[2] in params_one) or \
-        (sys.argv[2] in params_two) or \
+    if not ((sys.argv[2] in params_one) or
+        (sys.argv[2] in params_two) or
         (sys.argv[2] in params_three)):
         usage()
 
@@ -411,6 +411,8 @@ def main_function():
             print res
         elif sys.argv[2] == 'listall':
             res = _rights.listall()
+            if len(res) == 0:
+                print "Süsteemis pole ühtegi volitust kirjeldatud"
             print res
         elif sys.argv[2] == 'remall':
             res = _rights.remall()
@@ -418,7 +420,7 @@ def main_function():
         else:
             usage()
 
-    except Exception, ex: # pylint: disable=W0703
+    except Exception as ex:  # pylint: disable=W0703
         print "Viga: %s" % ex
         sys.exit(1)
 

@@ -1,3 +1,9 @@
+evote (1.1.2) stable; urgency=medium
+
+  * Parandatud ocsp_checker logimise viga
+
+ -- Ivar Smolin <okul@cyber.ee>  Mon, 26 Jan 2015 14:03:20 +0200
+
 evote (1.1.1) stable; urgency=low
 
   * python2.7

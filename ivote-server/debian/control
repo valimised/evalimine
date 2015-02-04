@@ -8,7 +8,7 @@ Standards-Version: 3.9.4
 Package: evote-common
 Architecture: any
 Conflicts: evote-prepare
-Depends: ${shlibs:Depends}, ${misc:Depends}, dvd+rw-tools, openssl, lpr, python2.7, python-gdbm, autofs, kbd, locales, less, libxerces-c3.1, libxml-security-c16, python-m2crypto, rsyslog, lvm2, at
+Depends: ${shlibs:Depends}, ${misc:Depends}, dvd+rw-tools, openssl, python2.7, python-gdbm, autofs, kbd, locales, less, libxerces-c3.1, libxml-security-c16, python-m2crypto, rsyslog, lvm2, at
 Description: E-hääletamise üldised komponendid
  Üldised komponendid
 

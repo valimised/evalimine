@@ -553,7 +553,7 @@ std::string Session::encrypt(const char *data, size_t len)
 	}
 
 	ret = std::string((char *)encrypted_data, encrypted_len);
-	delete encrypted_data;
+	free(encrypted_data);
 	encrypted_data = NULL;
 
 	return ret;
@@ -596,7 +596,7 @@ std::string Session::signit(const char *data, size_t len)
 	}
 
 	ret = std::string((char *)signed_data, signed_len);
-	delete signed_data;
+	free(signed_data);
 	signed_data = NULL;
 
 	return ret;

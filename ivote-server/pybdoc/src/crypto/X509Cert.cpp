@@ -19,7 +19,9 @@
 
 #include <sstream>
 #include <openssl/bio.h>
+#include <openssl/bn.h>
 #include <openssl/pem.h>
+#include <openssl/ecdsa.h>
 #include <openssl/err.h>
 #include <openssl/x509v3.h>
 #include <string.h>
@@ -222,9 +224,10 @@ std::string bdoc::X509Cert::toString(X509_NAME* name)
 EVP_PKEY* bdoc::X509Cert::getPublicKey() const
 {
 	EVP_PKEY* pubKey = X509_get_pubkey(cert);
-	if ((pubKey == NULL) || (pubKey->type != EVP_PKEY_RSA)) {
+	if (pubKey == NULL) {
 		EVP_PKEY_free(pubKey);
-		THROW_STACK_EXCEPTION("Unable to load RSA public Key: %s", ERR_reason_error_string(ERR_get_error()));
+		THROW_STACK_EXCEPTION("Unable to load public key: %s",
+				ERR_reason_error_string(ERR_get_error()));
 	}
 	return pubKey;
 }
@@ -232,6 +235,11 @@ EVP_PKEY* bdoc::X509Cert::getPublicKey() const
 std::string bdoc::X509Cert::getRsaModulus() const
 {
 	EVP_PKEY* pubKey = getPublicKey();
+	if (EVP_PKEY_type(pubKey->type) != EVP_PKEY_RSA) {
+		EVP_PKEY_free(pubKey);
+		THROW_STACK_EXCEPTION("Public key is not a RSA key.");
+	}
+
 
 	int bufSize = BN_num_bytes(pubKey->pkey.rsa->n);
 
@@ -254,6 +262,10 @@ std::string bdoc::X509Cert::getRsaModulus() const
 std::string bdoc::X509Cert::getRsaExponent() const
 {
 	EVP_PKEY* pubKey = getPublicKey();
+	if (EVP_PKEY_type(pubKey->type) != EVP_PKEY_RSA) {
+		EVP_PKEY_free(pubKey);
+		THROW_STACK_EXCEPTION("Public key is not a RSA key.");
+	}
 
 	int bufSize = BN_num_bytes(pubKey->pkey.rsa->e);
 
@@ -306,7 +318,7 @@ bool bdoc::X509Cert::verify(X509_STORE* aStore, struct tm* tm) const
 	}
 
 	if (tm != NULL) {
-		time_t t = mktime(tm);
+		time_t t = timegm(tm);
 		if (t == -1) {
 			THROW_STACK_EXCEPTION("Given time cannot be represented as calendar time");
 		}
@@ -344,122 +356,79 @@ int bdoc::X509Cert::compareIssuerToString(std::string in) const  {
 	return 0;
 }
 
-int my_rsa_decrypt(unsigned char **out,
-				const unsigned char *sigbuf, size_t siglen, RSA *rsa)
-
+bool bdoc::X509Cert::verifySignature(int digestMethod, int digestSize,
+		std::vector<unsigned char> digest,
+		std::vector<unsigned char> signature)
 {
-	int i = 0;
-	if (siglen != (unsigned int)RSA_size(rsa)) {
-		THROW_STACK_EXCEPTION("RSA_R_WRONG_SIGNATURE_LENGTH");
-	}
-
-	unsigned char *ret = (unsigned char *)OPENSSL_malloc((unsigned int)siglen);
-	if (ret == NULL) {
-		THROW_STACK_EXCEPTION("ERR_R_MALLOC_FAILURE");
-	}
-
-	i = RSA_public_decrypt((int)siglen, sigbuf, ret, rsa, RSA_PKCS1_PADDING);
-	if (i > 0) {
-		*out = ret;
-		ret = NULL;
-		return i;
-	}
-
-	if (ret) {
-		OPENSSL_cleanse(ret, (unsigned int)siglen);
-		OPENSSL_free(ret);
-	}
-	THROW_STACK_EXCEPTION("RSA_R_BAD_PUBLIC_DECRYPT");
-}
-
-int my_verify_2011(const unsigned char *buf, unsigned int buf_len,
-				const unsigned char *m, unsigned int m_len)
-
-{
-	if ((buf_len != m_len) || (memcmp(m, buf, m_len) != 0)) {
-		return 0;
-	}
-	return 1;
-}
-
-int my_verify_old(int dtype, const unsigned char *buf, long buf_len,
-				const unsigned char *m, unsigned int m_len)
-{
-	int ret = 0;
-	int sigtype = 0;
-	const unsigned char *p = buf;
-	X509_SIG *sig = d2i_X509_SIG(NULL, &p, buf_len);
-	if (sig == NULL) {
-		goto err;
-	}
-
-	if (p != buf + buf_len) {
-		goto err;
-	}
-
-	if (sig->algor->parameter &&
-				ASN1_TYPE_get(sig->algor->parameter) != V_ASN1_NULL) {
-		goto err;
-	}
-
-	sigtype = OBJ_obj2nid(sig->algor->algorithm);
-
-	if (sigtype != dtype) {
-		goto err;
-	}
-	else if (((unsigned int)sig->digest->length != m_len) ||
-		(memcmp(m,sig->digest->data,m_len) != 0)) {
-		goto err;
-	}
-	else {
-		ret = 1;
-	}
-err:
-	if (sig != NULL) X509_SIG_free(sig);
-	return ret;
-}
-
-
-int my_rsa_verify(int dtype, int dsize,
-				const unsigned char *m, unsigned int m_len,
-				const unsigned char *sigbuf, size_t siglen,
-				RSA *rsa)
-{
-	unsigned char *dec_buf = NULL;
-	int ret = 0;
-
-	int i = my_rsa_decrypt(&dec_buf, sigbuf, siglen, rsa);
-
-	if (i == dsize) {
-		ret = my_verify_2011(dec_buf, i, m, m_len);
-	}
-	else {
-		ret = my_verify_old(dtype, dec_buf, i, m, m_len);
-	}
-
-	if (dec_buf != NULL) {
-		OPENSSL_cleanse(dec_buf, (unsigned int)siglen);
-		OPENSSL_free(dec_buf);
-	}
-
-	return ret;
-}
-
-bool bdoc::X509Cert::verifySignature(int digestMethod, int digestSize, std::vector<unsigned char> digest, std::vector<unsigned char> signature)
-{
+	int result = 0;
 	EVP_PKEY* key = getPublicKey();
-	if (EVP_PKEY_type(key->type) != EVP_PKEY_RSA) {
-		THROW_STACK_EXCEPTION("Certificate '%s' does not have a RSA public key, can not verify signature.", getSubject().c_str());
-	}
-	RSA* publicKey = EVP_PKEY_get1_RSA(key);
 
-	if (publicKey == NULL) {
-		THROW_STACK_EXCEPTION("Certificate '%s' did not return a RSA public key, can not verify signature.", getSubject().c_str());
+	switch (EVP_PKEY_type(key->type)) {
+	case EVP_PKEY_RSA:
+	{
+		if (digest.size() > static_cast<size_t>(digestSize)) {
+			// The digest already has an ASN.1 DigestInfo header.
+			break;
+		}
+		X509_SIG *sig = X509_SIG_new();
+		// Prefer set0 to set_md, so we don't have to initialize the
+		// digest lookup table with OpenSSL_add_all_digests. None of
+		// our supported digests have parameters anyway.
+		X509_ALGOR_set0(sig->algor, OBJ_nid2obj(digestMethod), V_ASN1_NULL, NULL);
+		ASN1_OCTET_STRING_set(sig->digest, &digest[0], digest.size());
+
+		unsigned char *asn1 = NULL;
+		size_t asn1_len = i2d_X509_SIG(sig, &asn1);
+		digest = std::vector<unsigned char>(asn1, asn1 + asn1_len);
+		X509_SIG_free(sig);
+		break;
+	}
+	case EVP_PKEY_EC:
+	{
+		ECDSA_SIG *sig = ECDSA_SIG_new();
+		// signature is just r and s concatenated, so split them.
+		size_t n_len = signature.size() >> 1;
+		BN_bin2bn(&signature[0],     n_len, sig->r);
+		BN_bin2bn(&signature[n_len], n_len, sig->s);
+
+		unsigned char *asn1 = NULL;
+		size_t asn1_len = i2d_ECDSA_SIG(sig, &asn1);
+		signature = std::vector<unsigned char>(asn1, asn1 + asn1_len);
+		ECDSA_SIG_free(sig);
+		break;
+	}
+	default:
+		THROW_STACK_EXCEPTION("Certificate '%s' has an unsupported "
+				"public key type, can not verify signature.",
+				getSubject().c_str());
 	}
 
-	int result = my_rsa_verify(digestMethod, digestSize, &digest[0], digest.size(), &signature[0], signature.size(), publicKey);
-	RSA_free(publicKey);
+	EVP_PKEY_CTX *ctx = EVP_PKEY_CTX_new(key, NULL);
+	if (!ctx) {
+		EVP_PKEY_free(key);
+		THROW_STACK_EXCEPTION("Creating signature verification "
+				"context failed: %s",
+				ERR_reason_error_string(ERR_get_error()));
+	}
+
+	if (EVP_PKEY_verify_init(ctx) <= 0) {
+		EVP_PKEY_CTX_free(ctx);
+		EVP_PKEY_free(key);
+		THROW_STACK_EXCEPTION("Initializing signature "
+				"verification context failed: %s",
+				ERR_reason_error_string(ERR_get_error()));
+	}
+	result = EVP_PKEY_verify(ctx, &signature[0], signature.size(),
+			&digest[0], digest.size());
+	if (result < 0) {
+		EVP_PKEY_CTX_free(ctx);
+		EVP_PKEY_free(key);
+		THROW_STACK_EXCEPTION("Error during signature verification: %s",
+				ERR_reason_error_string(ERR_get_error()));
+	}
+
+	EVP_PKEY_CTX_free(ctx);
 	EVP_PKEY_free(key);
+
 	return (result == 1);
 }
-

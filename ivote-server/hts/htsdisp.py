@@ -16,6 +16,7 @@ from evlog import AppLog
 import hts
 import time
 
+
 def start_revocation(elid):
     AppLog().set_app('HTS', elid)
     p_time = "00:00:00"
@@ -26,7 +27,7 @@ def start_revocation(elid):
             AppLog().log('Üleminek tühistusperioodi: ALGUS')
             _hts = hts.HTS(elid)
             all_, rev, res = _hts.tyhistusperioodi()
-            p_time = time.strftime("%H:%M:%S", \
+            p_time = time.strftime("%H:%M:%S",
                     time.gmtime(long(time.time() - s_time)))
 
             print '\tVastuvõetud häälte koguarv: %d' % all_
@@ -48,11 +49,11 @@ def start_tabulation(elid):
     try:
         try:
             s_time = time.time()
-            AppLog().log('Loendamisele minevate ' \
+            AppLog().log('Loendamisele minevate '
                     'häälte nimekirja koostamine: ALGUS')
             _hts = hts.HTS(elid)
             g_v, r_v, a_v, b_v = _hts.lugemisperioodi()
-            p_time = time.strftime("%H:%M:%S", \
+            p_time = time.strftime("%H:%M:%S",
                     time.gmtime(long(time.time() - s_time)))
             print '\tLoendamisele minevate häälte arv: %d' % g_v
             print '\tAvalduse alusel tühistatud häälte arv: %d' % r_v
@@ -65,7 +66,7 @@ def start_tabulation(elid):
                 'koostamine ebaõnnestus'
             AppLog().log_exception()
     finally:
-        AppLog().log('Loendamisele minevate häälte nimekirja ' \
+        AppLog().log('Loendamisele minevate häälte nimekirja '
             'koostamine (%s): LÕPP' % p_time)
 
 

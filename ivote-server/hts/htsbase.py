@@ -55,16 +55,13 @@ class HTSBase:
         self._revlog.set_format(evlog.RevLogFormat())
         self._revlog.set_logs(self._reg.path(['common', evcommon.REVLOG_FILE]))
 
-
     def haaletanud(self, isikukood):
         latest = self.get_latest_vote(isikukood)
-        return latest <> None
-
+        return latest is not None
 
     def get_revoked_path(self, pc):
         user_key = htscommon.get_user_key(pc)
         return self._reg.path(user_key + ['reason'])
-
 
     def get_latest_vote(self, pc):
         user_key = htscommon.get_user_key(pc)
@@ -81,7 +78,6 @@ class HTSBase:
 
         return None
 
-
     def restore_vote(self, revline, operator):
         timest = self.get_latest_vote(revline[0])
         os.unlink(self.get_revoked_path(revline[0]))
@@ -93,12 +89,11 @@ class HTSBase:
             operaator=operator,
             pohjus=revline[2])
 
-
     def revoke_vote(self, revline, operator):
         timest = self.get_latest_vote(revline[0])
         nowstr = time.strftime("%Y%m%d%H%M%S", time.localtime())
-        self._reg.create_string_value(\
-            htscommon.get_user_key(revline[0]), 'reason', \
+        self._reg.create_string_value(
+            htscommon.get_user_key(revline[0]), 'reason',
             "%s\t%s" % (nowstr, revline[2]))
 
         self._revlog.log_info(
@@ -110,7 +105,6 @@ class HTSBase:
             operaator=operator,
             pohjus=revline[2])
 
-
     def is_user_revoked(self, pc):
         user_key = htscommon.get_user_key(pc)
         if self._reg.check(user_key + ['reason']):
@@ -118,7 +112,6 @@ class HTSBase:
             data = line.split('\t')
             return True, data[1], data[0]
         return False, '', ''
-
 
     def save_log(self, lines, log):
         fn = self._reg.path(['common', 'log%s' % log])
@@ -131,7 +124,6 @@ class HTSBase:
             lf.write(el + '\n')
         lf.close()
 
-
     def save_revocation_report(self, report):
         fn = self._reg.path(['hts', 'output', evcommon.REVREPORT_FILE])
         outfile = htscommon.LoggedFile(fn)
@@ -140,7 +132,6 @@ class HTSBase:
             outfile.write("\t".join(el) + "\n")
 
         outfile.close()
-
 
     def talletaja(self, ik):
         vl = None
@@ -151,10 +142,9 @@ class HTSBase:
             ret = vl.get_voter(ik)
             return ret
         finally:
-            if vl != None:
+            if vl is not None:
                 vl.close()
                 vl = None
-
 
 
 if __name__ == '__main__':

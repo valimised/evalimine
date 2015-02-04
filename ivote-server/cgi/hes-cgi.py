@@ -31,7 +31,7 @@ if not evcommon.testrun():
     evlog.AppLog().set_app('HES')
 
     try:
-        if form.has_key(evcommon.POST_EVOTE):
+        if evcommon.POST_EVOTE in form:
             req_params = [evcommon.POST_EVOTE, evcommon.POST_SESS_ID]
 
             if cgivalidator.validate_sessionid(form):

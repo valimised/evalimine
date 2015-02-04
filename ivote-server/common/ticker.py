@@ -14,6 +14,7 @@ http://creativecommons.org/licenses/by-nc-nd/3.0/.
 
 import sys
 
+
 class Counter:
 
     def __init__(self, prefix='', formatstr=''):
@@ -45,8 +46,11 @@ class Counter:
         sys.stdout.write(txt + '\n')
         self.__print_out(self._prefix % self._count)
 
-    def finish(self):
-        sys.stdout.write('\r' + self._clear)
+    def finish(self, result=False, *arglist):
+        if result:
+            self.__do_output(*arglist)
+        else:
+            sys.stdout.write('\r' + self._clear)
         sys.stdout.write('\n')
 
     def tick(self, amount=1, *arglist):

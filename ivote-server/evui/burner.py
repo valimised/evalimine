@@ -15,6 +15,8 @@ http://creativecommons.org/licenses/by-nc-nd/3.0/.
 import subprocess
 import stat
 import time
+import pwd
+import os
 import os.path
 import shutil
 import evcommon
@@ -30,7 +32,9 @@ DVD_SIZE = 4400000000                   # DVD 4,7 GB peaks olema siis 4,4GiB'i.
 APACHE2_LOG_DIR = '/var/log/apache2'
 SNAPSHOT_BACKUP_SCRIPT = '/usr/share/evote/evote_backup_snapshot'
 
+
 class DiskBurner:
+
     """Klass, mis aitab DVD-plaate kirjutada.
     """
 
@@ -43,22 +47,38 @@ class DiskBurner:
     def delete_files(self):
         if os.path.isdir(self.work_dir):
             shutil.rmtree(self.work_dir, True)
-        return
+
+    def _is_dvd_blank(self):
+        mi = subprocess.Popen(("dvd+rw-mediainfo", "/dev/dvd"), stdout=subprocess.PIPE)
+        mi_output = mi.communicate()[0]
+        if mi.returncode != 0:
+            raise Exception("viga DVD kontrollimisel, kontrollige kas DVD on korrektselt sisestatud")
+
+        grep = subprocess.Popen(["grep", "Disc status"], stdin=subprocess.PIPE, stdout=subprocess.PIPE)
+        grep_output = grep.communicate(mi_output)[0]
+        if grep.returncode != 0:
+            raise Exception("Viga DVD kontrollimisel")
+
+        if "blank" in grep_output:
+            return 0
+        else:
+            return 1
 
     def _backup(self, src_dir):
 
-        prompt = "Sisestage varukoopiate tegemiseks parool:"
-        snapshot = subprocess.Popen(["sudo", "-p", prompt,
-                        SNAPSHOT_BACKUP_SCRIPT, src_dir,
-                        self.work_dir], stdout=subprocess.PIPE,
-                        stderr=subprocess.STDOUT)
+        prompt = ("Sisestage varukoopiate tegemiseks kasutaja %s parool: "
+                  % (pwd.getpwuid(os.getuid()).pw_name))
+        snapshot = subprocess.Popen(
+            ["sudo", "-p", prompt,
+             SNAPSHOT_BACKUP_SCRIPT, src_dir, self.work_dir],
+            stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
         # The pipe will be closed when the process dies.
         # Read it before wait, so we won't have deadlock by waiting on
         # process that's waiting on the output.
         # The stderr=STDOUT means that stderr is redirected into stdout.
         error = snapshot.stdout.read()
         snapshot.wait()
-        if (snapshot.returncode != 0):
+        if snapshot.returncode != 0:
             print error
             return False
 
@@ -73,12 +93,11 @@ class DiskBurner:
 
         # Jagame jupid DVD'de kaupa kataloogidesse.
 
-        chunks = os.listdir(self.work_dir)
-        chunks.sort()
+        chunks = sorted(os.listdir(self.work_dir))
 
         dvd_count = 0
         current_size = 0
-        current_dir = os.path.join(self.work_dir, "%d" % dvd_count)
+        current_dir = os.path.join(self.work_dir, str(dvd_count))
         os.mkdir(current_dir)
 
         for chunk in chunks:
@@ -88,7 +107,7 @@ class DiskBurner:
             if current_size + chunk_size > DVD_SIZE:
                 current_size = 0
                 dvd_count += 1
-                current_dir = os.path.join(self.work_dir, "%d" % dvd_count)
+                current_dir = os.path.join(self.work_dir, str(dvd_count))
                 os.mkdir(current_dir)
             current_size += chunk_size
 
@@ -107,23 +126,27 @@ class DiskBurner:
             dvd_count += 1
 
             if dvd_dirs_size > 1:
-                print "Hakkame krijutama %d. DVD-d %d-st" % \
-                        (dvd_count, dvd_dirs_size)
+                print("Hakkame kirjutama %d. DVD-d %d-st" % (dvd_count,
+                                                             dvd_dirs_size))
 
-            if not uiutil.ask_yes_no(\
-                    "Palun sisestage DVDR(W) meedia seadmesse. Jätkan"):
+            if not uiutil.ask_yes_no(
+                    "Palun sisestage DVDR(W) meedium seadmesse. Jätkan"):
                 print "DVD kirjutamine katkestati"
                 return 1
 
+            if self._is_dvd_blank() != 0:
+                print "DVD ei ole tühi"
+                return 1
+
             while True:
-                dvd_speed = uiutil.ask_int(\
-                        "Palun sisestage DVD kirjutamiskiirus", \
-                        dvd_def_speed, DVD_MIN_SPEED, DVD_MAX_SPEED)
+                dvd_speed = uiutil.ask_int(
+                    "Palun sisestage DVD kirjutamise kiirus",
+                    dvd_def_speed, DVD_MIN_SPEED, DVD_MAX_SPEED)
                 dvd_def_speed = dvd_speed
 
-                cmdline = '%s -speed=%d -Z /dev/dvd -q -r -J %s' % \
-                        (BURN_PROGRAM, dvd_speed, \
-                            os.path.join(self.work_dir, dvd_dir))
+                cmdline = ('%s -speed=%d -Z /dev/dvd -q -r -J %s' %
+                           (BURN_PROGRAM, dvd_speed,
+                            os.path.join(self.work_dir, dvd_dir)))
 
                 print cmdline
                 rc = subprocess.call(cmdline, shell=True)
@@ -137,6 +160,7 @@ class DiskBurner:
 
 
 class Restorer (DiskBurner):
+
     def __init__(self, work_dir):
         DiskBurner.__init__(self, work_dir)
         self.chunks = []
@@ -150,13 +174,13 @@ class Restorer (DiskBurner):
             if chunk.startswith("evote-registry"):
                 print "Kopeerin faili '%s' ..." % chunk
                 shutil.copy(os.path.join(src_dir, chunk), self.work_dir)
-                subprocess.call('chmod ug+w %s' % \
-                        os.path.join(self.work_dir, chunk), shell=True)
+                subprocess.call('chmod ug+w %s' %
+                                os.path.join(self.work_dir, chunk), shell=True)
                 self.chunks.append(os.path.join(self.work_dir, chunk))
                 count += 1
-        if (count == 0):
-            print 'Kataloogis \'%s\' ei olnud ühtegi varukoopia faili' % \
-                    src_dir
+        if count == 0:
+            print("Kataloogis '%s' ei ole ühtegi varukoopia faili" %
+                  src_dir)
 
     def restore(self, reg_dir):
         if len(self.chunks) == 0:
@@ -168,11 +192,10 @@ class Restorer (DiskBurner):
         command = ['cat']
         command.extend(self.chunks)
 
-        cat = subprocess.Popen(command, stdout=subprocess.PIPE, \
-                stderr=subprocess.PIPE)
-        tar = subprocess.Popen(['tar', '-xzp'], \
-                stdin=cat.stdout, stderr=subprocess.PIPE,\
-                cwd=self.work_dir)
+        cat = subprocess.Popen(command, stdout=subprocess.PIPE,
+                               stderr=subprocess.PIPE)
+        tar = subprocess.Popen(['tar', '-xzp'], stdin=cat.stdout,
+                               stderr=subprocess.PIPE, cwd=self.work_dir)
         cat.wait()
         tar.wait()
 
@@ -185,8 +208,7 @@ class Restorer (DiskBurner):
             return False
 
         # Nüüd võime vana registri uue vastu vangerdada.
-        os.rename(reg_dir, '%s-%s' % \
-                (reg_dir, time.strftime("%Y%m%d%H%M%S")))
+        os.rename(reg_dir, '%s-%s' % (reg_dir, time.strftime("%Y%m%d%H%M%S")))
         os.rename(os.path.join(self.work_dir, 'registry'), reg_dir)
 
         return True
@@ -206,17 +228,17 @@ class FileListBurner(DiskBurner):
         self.current_dvd_size = 0
 
     def _disk_name(self, election_id):
-        self.current_disk_name = os.path.join(self.work_dir, '%d' % \
-                self.current_disk)
-        self.session_dir_name = os.path.join(self.current_disk_name, '%s' % \
-                self.session_id)
+        self.current_disk_name = os.path.join(self.work_dir,
+                                              '%d' % self.current_disk)
+        self.session_dir_name = os.path.join(self.current_disk_name,
+                                             '%s' % self.session_id)
         ret = os.path.join(self.session_dir_name, '%s' % election_id)
         if not os.path.isdir(ret):
             os.makedirs(ret)
         return ret
 
     def _new_disk(self, election_id):
-        if self.current_disk == None:
+        if self.current_disk is None:
             self.current_disk = 0
         else:
             self.current_disk += 1
@@ -226,7 +248,7 @@ class FileListBurner(DiskBurner):
     def append_files(self, election_id, file_list):
 
         dir_name = ''
-        if self.current_disk != None:
+        if self.current_disk is not None:
             dir_name = self._disk_name(election_id)
         else:
             dir_name = self._new_disk(election_id)
@@ -236,7 +258,7 @@ class FileListBurner(DiskBurner):
             try:
                 file_size = os.stat(i)[stat.ST_SIZE]
             except OSError:
-                print "Faili '%s' ei eksisteeri" % i
+                print "Faili '%s' pole olemas" % i
                 continue
 
             if file_size > DVD_SIZE:

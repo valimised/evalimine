@@ -1,5 +1,6 @@
 Template: evote-hts/log_server_ip
 Type: string
-Description: Logiserveri URL:
- Logiserveri URL (host:port) lisatakse rsyslog'i konfiguratsiooni
-
+Description: Keskse jälgimisjaama host ja port:
+ Hääletalletusserveri kõik logiteated saadetakse kesksesse jälgimisjaama.
+ Logiteadete saatmine toimub teenuse «syslog» ja andmesideprotokolli UDP abil.
+ Jälgimisjaama andmed tuleb määrata kujul «host:port».

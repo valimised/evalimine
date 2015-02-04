@@ -47,7 +47,7 @@ if __name__ == '__main__':
     try:
         execute()
     except: # pylint: disable=W0702
-        sys.stderr.write(\
+        sys.stderr.write(
             'Viga etapivahetusel: ' + exception_msg.trace() + '\n')
         sys.exit(1)
 

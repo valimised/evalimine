@@ -12,7 +12,6 @@ To view a copy of this license, visit
 http://creativecommons.org/licenses/by-nc-nd/3.0/.
 """
 
-import sys
 import subprocess
 from election import Election
 import time
@@ -20,6 +19,7 @@ import bdocconfig
 import evlog
 import evcommon
 import exception_msg
+
 
 def check_ocsp():
 
@@ -33,22 +33,22 @@ def check_ocsp():
         _ocsp = _conf.get_ocsp_responders()
 
         for el in _ocsp:
-            app = 'openssl ocsp -issuer "%s" -serial 123 -url "%s" -noverify' % \
-                                                                (_ocsp[el], el)
+            app = ('openssl ocsp -issuer "%s" -serial 123 -url "%s" -noverify'
+                   % (_ocsp[el], el))
 
-            pp = subprocess.Popen(app, shell=True, stdin=subprocess.PIPE, \
-                                        stdout=subprocess.PIPE, close_fds=True)
+            pp = subprocess.Popen(app, shell=True, stdin=subprocess.PIPE,
+                                  stdout=subprocess.PIPE, close_fds=True)
             is_ok = 0
             start = time.time()
-            while 1:
+            while True:
                 line = pp.stdout.readline()
-                if line == '':
+                if not line:
                     break
                 if line.strip().find('This Update:') != -1:
                     is_ok = 1
             end = time.time()
             if is_ok:
-                log.log_info(message='OCSP vastas %5.2f sekundiga' % (end - start))
+                log.log_info(message='OCSP päringu tegemiseks kulus %5.2f sekundit' % (end - start))
             else:
                 log.log_info(message='OCSP ei vasta')
     except:
@@ -60,6 +60,6 @@ if __name__ == '__main__':
         check_ocsp()
     except:
         pass
-    sys.exit(0)
+    exit(0)
 
 # vim:set ts=4 sw=4 et fileencoding=utf8:

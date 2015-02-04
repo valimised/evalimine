@@ -21,14 +21,9 @@
 ################################
 
 VERIFICATION_ERRORS
-Error message shown when the query had too many or unknown parameters
-BAD_PARAMETERS
-Vigased sisendparameetrid
-
-VERIFICATION_ERRORS
 The verification vote ID has expired, reached it's maximum count or is otherwise invalid
 INVALID_VOTE_ID
-Seda hääle identifikaatorit ei saa kasutada hääle kontrollimiseks
+Seda hääle identifikaatorit pole võimalik hääle kontrollimiseks kasutada
 
 VERIFICATION_ERRORS
 Error message given for internal errors during vore verification

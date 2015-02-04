@@ -48,9 +48,9 @@ def restore_revoke(elid, rfile, operator):
         g_l, b_l = the_hts.load_revoke(rl.rev_list, operator)
 
         report.append(['------------------------------'])
-        report.append(['TÜHISTAMINE (%s)' % \
+        report.append(['TÜHISTAMINE (%s)' %
                 time.strftime("%Y%m%d%H%M%S", newtime)])
-        report.append(['%d õnnestumist, %d ebaõnnestumist' % \
+        report.append(['%d õnnestumist, %d ebaõnnestumist' %
                 (len(g_l), len(b_l))])
         report.append(['Operaator %s, fail %s ' % (operator, rfile)])
 
@@ -60,12 +60,11 @@ def restore_revoke(elid, rfile, operator):
         g_l, b_l = the_hts.load_restore(rl.rev_list, operator)
 
         report.append(['------------------------------'])
-        report.append(['ENNISTAMINE (%s)' % \
+        report.append(['ENNISTAMINE (%s)' %
                 time.strftime("%Y%m%d%H%M%S", newtime)])
-        report.append(['%d õnnestumist, %d ebaõnnestumist' % \
+        report.append(['%d õnnestumist, %d ebaõnnestumist' %
                 (len(g_l), len(b_l))])
         report.append(['Operaator %s, fail %s ' % (operator, rfile)])
-
 
     for el in b_l:
         el.append(act + ' nurjus')
@@ -104,7 +103,7 @@ if __name__ == '__main__':
     try:
         try:
             s_time = time.time()
-            evlog.AppLog().log(\
+            evlog.AppLog().log(
                 'Tühistus-/ennistusnimekirja laadimine: ALGUS')
 
             bdocpython.initialize()
@@ -121,7 +120,7 @@ if __name__ == '__main__':
             tmp_f = bdocpythonutils.get_doc_content_file(infile)
 
             all_, res_a, res_u = restore_revoke(elid, tmp_f, _signercode)
-            p_time = time.strftime("%H:%M:%S", \
+            p_time = time.strftime("%H:%M:%S",
                     time.gmtime(long(time.time() - s_time)))
 
             print 'Tühistamine/ennistamine'
@@ -135,9 +134,9 @@ if __name__ == '__main__':
             evlog.AppLog().log_exception()
             sys.exit(1)
     finally:
-        if tmp_f != None:
+        if tmp_f is not None:
             os.unlink(tmp_f)
-        evlog.AppLog().log(\
+        evlog.AppLog().log(
             'Tühistus-/ennistusnimekirja laadimine (%s): LÕPP' % p_time)
 
     sys.exit(0)

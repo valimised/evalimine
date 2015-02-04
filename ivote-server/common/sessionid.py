@@ -18,6 +18,7 @@ import singleton
 APACHE_UNIQUE_ID = "UNIQUE_ID"
 COMMAND_LINE = "cmd"
 
+
 class InternalSessionID:
 
     __metaclass__ = singleton.SingletonType
@@ -50,11 +51,14 @@ class InternalSessionID:
 def apache():
     return InternalSessionID().apache()
 
+
 def voting():
     return InternalSessionID().voting()
 
+
 def setsid(sid):
     InternalSessionID().setsid(sid)
+
 
 def reset():
     InternalSessionID().reset()

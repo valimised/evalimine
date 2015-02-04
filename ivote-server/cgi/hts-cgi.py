@@ -12,61 +12,68 @@ To view a copy of this license, visit
 http://creativecommons.org/licenses/by-nc-nd/3.0/.
 """
 
-import htsalldisp
 import cgi
 import evcommon
+import evlog
 import protocol
 import sessionid
+import cgivalidator
+import htsalldisp
 import os
-
-def bad_input():
-    _msg = htsalldisp.bad_cgi_input()
-    protocol.http_response(_msg)
-    cgi.sys.exit(0)
-
 
 if not evcommon.testrun():
     os.umask(007)
     form = cgi.FieldStorage()
+    result = protocol.msg_error_technical()
+    evlog.AppLog().set_app("HTS")
 
-    has_sha256 = form.has_key(evcommon.POST_VOTERS_FILES_SHA256)
-    has_code = form.has_key(evcommon.POST_PERSONAL_CODE)
-    has_vote = form.has_key(evcommon.POST_EVOTE)
-    has_sess = form.has_key(evcommon.POST_SESS_ID)
+    try:
+        if cgivalidator.validate_sessionid(form):
+            sessionid.setsid(form.getvalue(evcommon.POST_SESS_ID))
 
-    if (not has_sha256):
-        bad_input()
+        if evcommon.POST_EVOTE in form:
+            # Store the vote
+            req_params = [evcommon.POST_VOTERS_FILES_SHA256,
+                          evcommon.POST_SESS_ID,
+                          evcommon.POST_PERSONAL_CODE,
+                          evcommon.POST_EVOTE]
+            res, logline = cgivalidator.validate_form(form, req_params)
+            if res:
+                sha = form.getvalue(evcommon.POST_VOTERS_FILES_SHA256)
+                code = form.getvalue(evcommon.POST_PERSONAL_CODE)
+                vote = form.getvalue(evcommon.POST_EVOTE)
+                result = htsalldisp.store_vote(sha, code, vote)
+            else:
+                evlog.log_error("vote/err, " + logline)
 
-    val_sha = form.getvalue(evcommon.POST_VOTERS_FILES_SHA256)
+        elif (evcommon.POST_SESS_ID in form
+                or evcommon.POST_PERSONAL_CODE in form):
+            # Check for repeat voting
+            req_params = [evcommon.POST_VOTERS_FILES_SHA256,
+                          evcommon.POST_SESS_ID,
+                          evcommon.POST_PERSONAL_CODE]
+            res, logline = cgivalidator.validate_form(form, req_params)
+            if res:
+                sha = form.getvalue(evcommon.POST_VOTERS_FILES_SHA256)
+                code = form.getvalue(evcommon.POST_PERSONAL_CODE)
+                result = htsalldisp.check_repeat(sha, code)
+            else:
+                evlog.log_error("repeat/err, " + logline)
 
-    if (not has_code) and (not has_vote):
-        msg = htsalldisp.consistency(val_sha)
-        protocol.http_response(msg)
-        cgi.sys.exit(0)
-
-    if (has_sess):
-        sessionid.setsid(form.getvalue(evcommon.POST_SESS_ID))
-
-    if has_code and has_vote:
-        if (has_sess):
-            val_code = form.getvalue(evcommon.POST_PERSONAL_CODE)
-            val_vote = form.getvalue(evcommon.POST_EVOTE)
-            msg = htsalldisp.store_vote(val_sha, val_code, val_vote)
-            protocol.http_response(msg)
-            cgi.sys.exit(0)
         else:
-            bad_input()
+            # Check consistency
+            req_params = [evcommon.POST_VOTERS_FILES_SHA256]
+            res, logline = cgivalidator.validate_form(form, req_params)
+            if res:
+                sha = form.getvalue(evcommon.POST_VOTERS_FILES_SHA256)
+                result = htsalldisp.consistency(sha)
+            else:
+                evlog.log_error("consistency/err, " + logline)
+    except:
+        evlog.log_exception()
+        result = protocol.msg_error_technical()
 
-    if has_code and (not has_vote):
-        if (has_sess):
-            val_code = form.getvalue(evcommon.POST_PERSONAL_CODE)
-            msg = htsalldisp.check_repeat(val_sha, val_code)
-            protocol.http_response(msg)
-            cgi.sys.exit(0)
-        else:
-            bad_input()
-
-    bad_input()
-
+    protocol.http_response(result)
+    cgi.sys.exit(0)
 
 # vim:set ts=4 sw=4 et fileencoding=utf8:

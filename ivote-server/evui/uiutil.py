@@ -27,24 +27,26 @@ import tty
 
 NOT_DEFINED_STR = "pole määratud"
 
-PRINT_PROGRAM = "lpr"
-
 ANSWER_YES = "jah"
 ANSWER_NO = "ei"
 
 TMPFILE_PREFIX = "evotetmp"
 
 
-def print_file_list(file_list):
-    if len(file_list) > 0:
-        cmd = "%s %s" % (PRINT_PROGRAM, " ".join(file_list))
-        os.system(cmd)
-    return
-
-
 def del_tmp_files():
-    cmd = "rm -f /tmp/%s*" % TMPFILE_PREFIX
-    os.system(cmd)
+    map(os.remove, glob.iglob("/tmp/%s*" % TMPFILE_PREFIX))
+
+
+def clear_dir(dir_):
+    for entry in os.listdir(dir_):
+        path = os.path.join(dir_, entry)
+        try:
+            if os.path.isdir(path):
+                shutil.rmtree(path)
+            else:
+                os.remove(path)
+        except Exception as e:
+            print "Viga %s kustutamisel: %s" % (path, e.message)
 
 
 def clrscr():
@@ -58,9 +60,9 @@ def ask_del_election_id(election_ids):
     """
     do = 1
     while do:
-        elid = ask_string(\
-            "Sisestage kustutatav valimiste identifikaator", "^\w{1,28}$", \
-                "Valimiste identifikaator peab olema 1..28 tähte/numbrit")
+        elid = ask_string(
+            "Sisestage kustutatav valimiste identifikaator", "^\w{1,28}$",
+            "Valimiste identifikaator peab olema 1..28 tähte/numbrit")
         if elid in election_ids:
             do = 0
         else:
@@ -76,8 +78,9 @@ def ask_election_id(election_ids):
     """
     do = 1
     while do:
-        elid = ask_string("Sisestage valimiste identifikaator", \
-            "^\w{1,28}$", \
+        elid = ask_string(
+            "Sisestage valimiste identifikaator",
+            "^\w{1,28}$",
             "Valimiste identifikaator peab olema 1..28 tähte/numbrit")
         do = 0
         for i in range(len(election_ids)):
@@ -93,7 +96,8 @@ def ask_id_num():
     Küsib operaatorilt isikukoodi.
     @return: isikukood
     """
-    return ask_string("Sisesta isikukood", "^\d{11,11}$", \
+    return ask_string(
+        "Sisesta isikukood", "^\d{11,11}$",
         "Isikukood peab koosnema 11-st numbrist")
 
 
@@ -105,8 +109,8 @@ def ask_file_name(prefix, default=None):
     while True:
         filename = ask_string(prefix, None, None, default)
         if not check_file(filename):
-            print ("Faili %s ei eksisteeri või on tegu kataloogiga" % \
-                    filename)
+            print ("Faili %s pole olemas või on tegu kataloogiga" %
+                   filename)
             continue
         break
     return filename
@@ -120,8 +124,8 @@ def ask_dir_name(prefix, default=None):
     while True:
         dirname = ask_string(prefix, None, None, default)
         if not check_dir(dirname):
-            print ("Kataloogi %s ei eksisteeri või on tegu failiga" % \
-                    dirname)
+            print ("Kataloogi %s pole olemas või on tegu failiga" %
+                   dirname)
             continue
         break
     return dirname
@@ -133,34 +137,39 @@ def ask_file_name_from_cd(prefix, default=None):
     kataloogi spets prefikiga, et võimaldada CD vahetust dialoogi ajal.
     @return: faili nimi
     """
+
+    EXTENSIONS = [".signature", ".sig", ".sha256", ".sha1"]
+
     while True:
         file_path = ask_string(prefix, None, None, default)
         if not check_file(file_path):
-            print "Faili %s ei eksisteeri või on tegu katalooiga" % file_path
+            print "Faili %s pole olemas või on tegu kataloogiga" % file_path
             continue
         file_name = os.path.split(file_path)[1]
         time_str = time.strftime("%Y%m%d%H%M%S")
-        tmp_file = os.path.join("/", "tmp", "%s_%s_%s" % \
-            (TMPFILE_PREFIX, time_str, file_name))
-        print "Palun oota. Laen faili.."
+        tmp_file = os.path.join("/", "tmp", "%s_%s_%s" %
+                                (TMPFILE_PREFIX, time_str, file_name))
+        print "Palun oota. Laadin faili.."
         try:
             shutil.copyfile(file_path, tmp_file)
-            if check_file(file_path + ".sha256"):
-                shutil.copyfile(file_path + ".sha256", tmp_file + ".sha256")
-            break
-        except Exception, what:
+            for ext in EXTENSIONS:
+                if check_file(file_path + ext):
+                    shutil.copyfile(file_path + ext, tmp_file + ext)
+                    break  # for one extension
+            break  # for endless loop
+        except Exception as what:
             print "Viga! Faili ei õnnestu laadida: %s." % str(what)
     return tmp_file
 
 
 def ask_yes_no(prefix, default=None):
-    while 1:
-        if default != None:
-            yn = raw_input("%s (%s/%s) [%s]? " % \
-                (prefix, ANSWER_YES, ANSWER_NO, default))
+    while True:
+        if default is not None:
+            yn = raw_input("%s (%s/%s) [%s]? " %
+                           (prefix, ANSWER_YES, ANSWER_NO, default))
         else:
-            yn = raw_input("%s (%s/%s)? " % \
-                (prefix, ANSWER_YES, ANSWER_NO))
+            yn = raw_input("%s (%s/%s)? " %
+                           (prefix, ANSWER_YES, ANSWER_NO))
         yn = yn.strip().lower()
         if len(yn) > 0 and ANSWER_YES.find(yn) == 0:
             return 1
@@ -183,7 +192,7 @@ def check_dir(path):
 
 
 def ask_int(prefix, default, minval=None, maxval=None):
-    while 1:
+    while True:
         i = raw_input("%s [%d]: " % (prefix, default))
         i = i.strip()
         if len(i) == 0:
@@ -193,57 +202,58 @@ def ask_int(prefix, default, minval=None, maxval=None):
         except ValueError:
             print "Palun sisesta täisarv"
             continue
-        if minval != None and retval < minval:
+        if minval is not None and retval < minval:
             print "Palun sisesta täisarv, mis on võrdne või suurem " + \
                 "kui %d" % minval
             continue
-        if maxval != None and retval > maxval:
+        if maxval is not None and retval > maxval:
             print "Palun sisesta täisarv, mis on võrdne või väiksem " + \
                 "kui %d" % maxval
             continue
         return retval
 
+
 def ask_time(prefix, format="%d.%m.%Y %H:%M", default=None):
-    while 1:
-        if default == None:
+    while True:
+        if default is None:
             tstr = raw_input("%s: " % prefix)
         else:
-            tstr = raw_input("%s [%s]: " % (prefix, time.strftime(format, default)))
+            tstr = raw_input("%s [%s]: " %
+                             (prefix, time.strftime(format, default)))
         tstr = tstr.strip()
         if len(tstr) == 0 and default:
             return default
         try:
             return time.strptime(tstr, format)
-        except ValueError as e:
+        except ValueError:
             print "Palun sisesta kuupäev ja kellaaeg kujul %s" % format
             continue
 
-def ask_string(prefix, pattern=None, err_text=None,
-        default=None):
+
+def ask_string(prefix, pattern=None, err_text=None, default=None):
     """
     Küsib operaatorilt küsimuse prefix. Sisestatud vastus peab
     kattuma mustriga pattern, vastasel korral näidatakse
     veateksti err_text ja uuele ringile.
     @return: sisestatud string
     """
-    while 1:
-        if default == None:
-            #in_str = raw_input("%s: " % prefix)
+    while True:
+        if default is None:
             in_str = _get_string("%s: " % prefix)
         else:
-            #in_str = raw_input("%s [%s]: " % (prefix, default))
             in_str = _get_string("%s [%s]: " % (prefix, default))
         in_str = in_str.strip()
         if len(in_str) < 1:
-            if default != None:
+            if default is not None:
                 in_str = default
             else:
-                if err_text != None:
+                if err_text is not None:
                     print err_text
                 continue
-        if (pattern != None):
+        if (pattern is not None):
             if not re.compile(pattern).match(in_str):
-                print err_text
+                if err_text is not None:
+                    print err_text
                 continue
             else:
                 return in_str
@@ -251,12 +261,25 @@ def ask_string(prefix, pattern=None, err_text=None,
             return in_str
 
 
+def ask_int_list(prefix, maxnum):
+    numstr = ask_string(prefix, r'^\d+(,\s*\d+)*$')
+    numlist = []
+    for el in numstr.split(','):
+        tok = int(el) - 1
+        if (tok >= 0) and (tok < maxnum):
+            numlist.append(tok)
+        else:
+            print 'Ei arvesta vigast väärtust: %d' % (tok + 1)
+
+    return numlist
+
+
 def ask_password(prefix, err_text):
     """
     Küsib operaatorilt parooli.
     @return: sisestatud string
     """
-    while 1:
+    while True:
         in_str = getpass.getpass(prefix)
         in_str = in_str.strip()
         if len(in_str) < 1:
@@ -302,7 +325,6 @@ def _get_string(prefix):
             # Backspacega kustutamine
             if _del_char(prefix, inp):
                 inp = inp[:-1]
-        #elif curses.ascii.isascii(ch) and curses.ascii.isprint(ch):
         else:
             # Uue sümboli sisestamine
             sys.stdout.write(ch)
@@ -322,8 +344,7 @@ def _to_new_line(prefix, inp):
     _, _w = _term_size()
     # et saaks õige kuvatava tähtede arvu
     prefix_len = len(unicode(prefix, "utf8"))
-    if (prefix_len + len(inp)) % _w == 0 and \
-    prefix_len + len(inp) > 0:
+    if (prefix_len + len(inp)) % _w == 0 and prefix_len + len(inp) > 0:
         fd = sys.stdin.fileno()
         # vana seadistus
         old_settings = termios.tcgetattr(fd)
@@ -346,8 +367,7 @@ def _del_char(prefix, inp):
     _, _w = _term_size()
     # et saaks õige kuvatava tähtede arvu
     prefix_len = len(unicode(prefix, "utf8"))
-    if (prefix_len + len(inp)) % _w == 0 and \
-    prefix_len + len(inp) > 0:
+    if (prefix_len + len(inp)) % _w == 0 and prefix_len + len(inp) > 0:
         up_and_right = True
     elif len(inp) > 0:
         up_and_right = False
@@ -412,7 +432,6 @@ def _get_char():
     try:
         tty.setraw(sys.stdin.fileno())
         ch = sys.stdin.read(1)
-        #ch = os.read(fd, 1)
     finally:
         termios.tcsetattr(fd, termios.TCSADRAIN, old_settings)
     return ch
@@ -503,10 +522,9 @@ def _term_size():
     """
     Tagastab tuple (height, width) terminaliakna mõõtmetest.
     """
-    _h, _w = struct.unpack(\
+    _h, _w = struct.unpack(
         "hhhh", fcntl.ioctl(0, termios.TIOCGWINSZ, "\000" * 8))[0:2]
     return _h, _w
-
 
 
 # vim:set ts=4 sw=4 et fileencoding=utf8:

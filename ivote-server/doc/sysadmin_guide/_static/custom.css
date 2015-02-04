@@ -1,0 +1,73 @@
+@import url("nature.css");
+
+/* tegemist vajavate asjade infokast */
+
+.admonition-teha {
+  background-color: yellow;
+  border: 1px outset green;
+}
+
+.admonition-teha:hover {
+  background-color: #ee0;
+  border: 1px inset green;
+}
+
+/* tähelepanu */
+
+.attention {
+  background-color: #fffafa;
+  border: 1px dashed red;
+}
+
+/* redaktsioonide ajaloo tabel */
+
+table.docutils {
+  border: 1px solid gray;
+}
+
+table.docutils tr td p {
+  margin: 0px;
+  border-bottom: 1px dashed lightgray;
+}
+
+/* koodinäited */
+
+div.highlight pre {
+  background-color: #e8ffcb;
+}
+
+/* faili nimi */
+
+tt.file {
+  color: blue;
+}
+
+/* menüüpunkti nimi */
+
+em.menuselection {
+  color: darkgreen;
+  background-color: #eef;
+}
+
+/* klahvikombinatsioon */
+
+tt.kbd {
+  color: black;
+  font-weight: bold;
+}
+
+/* pealkirjad */
+
+div.body h3 {
+  font-size: 130%;
+}
+
+div.body h5 {
+  font-size: 90%;
+  font-weight: bold;
+  background-color: #f8f8f8;
+}
+
+/*
+ * vim:sts=2 sw=2 et:
+ */

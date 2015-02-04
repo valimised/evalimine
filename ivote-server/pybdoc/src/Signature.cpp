@@ -699,7 +699,8 @@ void bdoc::Signature::checkSignatureMethod() const
 		algorithmType = getSignatureMethodAlgorithmType();
 	if (algorithmType != URI_ID_RSA_SHA1
 			&& algorithmType != URI_ID_RSA_SHA224
-			&& algorithmType != URI_ID_RSA_SHA256) {
+			&& algorithmType != URI_ID_RSA_SHA256
+			&& algorithmType != URI_ID_ECDSA_SHA256) {
 		THROW_STACK_EXCEPTION(
 			"Unsupported SignedInfo signature method \"%s\"",
 			algorithmType.c_str());

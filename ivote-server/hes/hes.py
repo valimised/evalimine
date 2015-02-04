@@ -67,10 +67,10 @@ class VoteChecker:
             elines = []
             if mobid:
                 alines, elines = \
-                        regrights.analyze_signature_for_log(self._decoded_vote)
+                    regrights.analyze_signature_for_log(self._decoded_vote)
             else:
                 alines, elines = \
-                        regrights.analyze_vote_for_log(self._decoded_vote)
+                    regrights.analyze_vote_for_log(self._decoded_vote)
 
             for el in alines:
                 evlog.log(el)
@@ -91,7 +91,8 @@ class VoteChecker:
                 self.error.user_code = evcommon.EVOTE_ERROR
 
                 if not res.cert_is_valid:
-                    self.error.user_msg = evmessage.EV_ERRORS.SERTIFIKAAT_ON_AEGUNUD
+                    self.error.user_msg =\
+                        evmessage.EV_ERRORS.SERTIFIKAAT_ON_AEGUNUD
                     self.error.user_code = evcommon.EVOTE_CERT_ERROR
 
                 return False
@@ -100,7 +101,7 @@ class VoteChecker:
             if self._ik != ik_ver:
                 self.error.log_msg = \
                     'Autentija (%s) ja allkirjastaja (%s) erinevad' % \
-                        (self._ik, ik_ver)
+                    (self._ik, ik_ver)
                 self.error.user_msg = \
                     evmessage.EV_ERRORS.TEHNILINE_VIGA
                 self.error.user_code = evcommon.EVOTE_ERROR
@@ -127,18 +128,15 @@ class HTSConnector:
         self.answer = []
 
     def work_strict(self):
-        if self.work():
-            if len(self.answer) == 3:
-                return True
-        return False
+        return self.work() and len(self.answer) == 3
 
     def work(self):
         querystr = self._params.keys()
         encoded = urllib.urlencode(self._params)
         try:
             conn = httplib.HTTPConnection(Election().get_hts_ip())
-            conn.request(evcommon.HTTP_POST, \
-                Election().get_hts_path(), encoded, HEADERS)
+            conn.request(evcommon.HTTP_POST,
+                         Election().get_hts_path(), encoded, HEADERS)
             response = conn.getresponse()
             respstr = response.read()
             conn.close()
@@ -148,15 +146,15 @@ class HTSConnector:
             else:
                 self.answer = respstr.split('\n')
 
-        except Exception, ex:
-            self.error.set_log_msg(\
+        except Exception as ex:
+            self.error.set_log_msg(
                 'Suhtlus HES ja HTS vahel ebaõnnestus: %s' % str(ex))
             return False
 
-        #Teeme veateate valmis. Kui viga ei ole, siis teadet ei vaadata
-        self.error.set_log_msg(\
-            'Ebakorrektne vastus HTSilt. Saatsin (%s), sain (%s)' % \
-                (querystr, self.answer))
+        # Teeme veateate valmis. Kui viga ei ole, siis teadet ei vaadata
+        self.error.set_log_msg(
+            'Ebakorrektne vastus HTSilt. Saatsin (%s), sain (%s)' %
+            (querystr, self.answer))
 
         if len(self.answer) < 3:
             return False
@@ -170,29 +168,30 @@ class HTSConnector:
         return True
 
 
-
 class CandidateListExtractor:
 
-    def __init__(self, ik, uid, pname):
+    def __init__(self, ik, uid):
         self._ik = ik
         self._list = []
         self._name_type = ''
         self._unique_id = uid
-        self._pname = pname
+        self._pname = ''
 
     def compose_list(self):
         questions = Election().get_questions_obj('hes')
         for quest in questions:
             voter = quest.get_voter(self._ik)
-            if voter == None:
+            if voter is None:
                 continue
+            # Read voter's name from voters list
+            self._pname = voter['nimi']
             elid = quest.qname()
             self._name_type = \
                 self._name_type + elid + ':' + str(quest.get_type()) + '\t'
             kandidaadid = quest.choices_to_voter(voter)
-            evlog.log("Ringkond: %s-%s-%s-%s-%s" % \
-                    (elid, voter['jaoskond_omavalitsus'], voter['jaoskond'], \
-                    voter['ringkond_omavalitsus'], voter['ringkond']))
+            evlog.log("Ringkond: %s-%s-%s-%s-%s" %
+                      (elid, voter['jaoskond_omavalitsus'], voter['jaoskond'],
+                       voter['ringkond_omavalitsus'], voter['ringkond']))
             self._list.append(kandidaadid)
 
     def has_list(self):
@@ -200,11 +199,12 @@ class CandidateListExtractor:
 
     def get_list(self):
         res = self._name_type + '\n'
-        res = res + self._unique_id + '\n'
-        res = res + self._pname + '\t' + self._ik + '\n'
+        res += self._unique_id + '\n'
+        res += self._pname + '\t' + self._ik + '\n'
         for el in self._list:
-            res = res + el
+            res += el
         return res[:-1]
+
 
 class HES:
 
@@ -223,7 +223,7 @@ class HES:
         evlog.AppLog().set_person(ik)
         evlog.log('Kandidaatide nimekiri: %s %s' % (en, pn))
         cld = CandidateListExtractor(
-                ik, sessionid.voting(), "%s %s" % (en, pn))
+                ik, sessionid.voting())
         cld.compose_list()
         if cld.has_list():
             return evcommon.EVOTE_OK, cld.get_list()
@@ -249,9 +249,7 @@ class HES:
             return self.__return_error(error)
 
         inspector = VoteChecker(decoded_vote, ik)
-        mobid = False
-        if 'MOBILE_ID_CONTEXT' in os.environ:
-            mobid = True
+        mobid = 'MOBILE_ID_CONTEXT' in os.environ
 
         if not inspector.check_vote(mobid):
             return self.__return_error(inspector.error)
@@ -291,7 +289,7 @@ class HES:
 
     def hts_consistency_check(self):
         sha256 = Election().get_voters_files_sha256()
-        if len(sha256) > 0:
+        if sha256:
             params = {evcommon.POST_VOTERS_FILES_SHA256: sha256}
             hts_connector = HTSConnector(params)
             if not hts_connector.work_strict():
@@ -299,11 +297,10 @@ class HES:
                     evcommon.EVOTE_CONSISTENCY_ERROR
                 return self.__return_error(hts_connector.error)
             return hts_connector.answer[1], hts_connector.answer[2]
-        else:
-            error = HESResult()
-            error.user_code = evcommon.EVOTE_CONSISTENCY_ERROR
-            error.log_msg = 'POST_VOTERS_FILES_SHA256 parameeter oli (null)'
-            return self.__return_error(error)
+        error = HESResult()
+        error.user_code = evcommon.EVOTE_CONSISTENCY_ERROR
+        error.log_msg = 'POST_VOTERS_FILES_SHA256 parameeter oli (null)'
+        return self.__return_error(error)
 
 
 if __name__ == '__main__':

@@ -1,13 +1,21 @@
 Template: evote-hes/log_server_ip
 Type: string
-Description: Logiserveri URL:
- Logiserveri URL (host:port) lisatakse rsyslog'i konfiguratsiooni
+Description: Keskse jälgimisjaama host ja port:
+ Hääleedastusserveri kõik logiteated saadetakse kesksesse jälgimisjaama.
+ Logiteadete saatmine toimub teenuse «syslog» ja andmesideprotokolli UDP abil.
+ Jälgimisjaama andmed tuleb määrata kujul «host:port».
 
-Template: evote-hes/information
+Template: evote-hes/apache-config
 Type: note
 Description: Veebiserver vajab täiendavat seadistamist!
- Apache veebiserverit ei taaskäivitatud, kuna laadimata on
-    * veebiserveri privaatvõti ja sertifikaat
-    * juursertifikaadid
- Juursertifikaatide laadimine toimub HES operaatoriliidesest
-
+ Apache2 veebiserverit ei taaskäivitatud, kuna laadimata on:
+ .
+    * veebiserveri sertifikaat (SSLCertificateFile)
+    * veebiserveri privaatvõti (SSLCertificateKeyFile)
+    * juursertifikaadid (SSLCACertificatePath)
+ .
+ Juursertifikaatide laadimine toimub HES-i operaatoriliidesest.
+ .
+ Apache2 sätete testimiseks on võimalik kasutada käsku
+ .
+   # apache2ctl configtest

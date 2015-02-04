@@ -24,17 +24,22 @@ import sessionid
 import evcommon
 import urllib
 
+
 def log(msg):
     AppLog().log(msg)
+
 
 def log_error(msg):
     AppLog().log_error(msg)
 
+
 def log_exception():
     AppLog().log_exception()
 
+
 def log_integrity(msg):
     AppLog().log_integrity(msg)
+
 
 class RevLogFormat:
 
@@ -48,9 +53,7 @@ class RevLogFormat:
 
         newtime = time.localtime()
         if contains(args, 'testtime'):
-            newtime = time.strptime(
-                    args['testtime'],
-                    "%Y%m%d%H%M%S")
+            newtime = time.strptime(args['testtime'], "%Y%m%d%H%M%S")
 
         line = []
         line.append(args['tegevus'])
@@ -101,8 +104,8 @@ class EvLogFormat:
             line.append(str(args['jaoskond']))
 
         if args['tyyp'] in [0, 1, 2, 3]:
-            #*1valija-andmed =
-            #isikukood 11*11DIGIT
+            # *1valija-andmed =
+            # isikukood 11*11DIGIT
             line.append(str(args['isikukood']))
         if args['tyyp'] == 2:
             # pohjus 1*100UTF-8-CHAR
@@ -114,7 +117,6 @@ class EvLogFormat:
 
         return logstring
 
-
     # Currently we only check for personal code
     # this can be extended to check anything
     def matches(self, data, line, count):
@@ -123,7 +125,7 @@ class EvLogFormat:
 
 class AppLogFormat:
 
-    def __init__(self, app = None):
+    def __init__(self, app=None):
         self.__app = app
         self.__elid = ''
         self.__pers_id = ''
@@ -155,6 +157,35 @@ class AppLogFormat:
             args['message'])
         return logstring
 
+
+class ChangesLogFormat:
+
+    def __init__(self, app=None):
+        self.__app = app
+        self.__elid = ''
+        self.__sess = os.getpid()
+        self.__psess = os.getppid()
+
+    def set_elid(self, elid):
+        self.__elid = elid
+
+    def set_app(self, app):
+        self.__app = app
+
+    def keep(self):
+        return False
+
+    def message(self, args):
+        logstring = "%s (%s:%d:%d:%s): %s" % (
+            time.strftime("%Y-%m-%d %H:%M:%S"),
+            self.__app,
+            self.__sess,
+            self.__psess,
+            self.__elid,
+            args['message'])
+        return logstring
+
+
 class LogFile:
 
     __filename = None
@@ -172,7 +203,7 @@ class LogFile:
             finally:
                 _af.close()
 
-    def line_count(self): # pylint: disable=R0201
+    def line_count(self):  # pylint: disable=R0201
         line_count = 0
         try:
             os.stat(self.__filename)
@@ -187,7 +218,6 @@ class LogFile:
         finally:
             if (_rf):
                 _rf.close()
-
 
     def contains(self, data, form):
 
@@ -211,7 +241,6 @@ class LogFile:
                 _f.close()
 
         return res
-
 
 
 class Logger(object):
@@ -244,8 +273,8 @@ class Logger(object):
     def _do_log(self, level, **args):
         self.__last_message = self._form.message(args)
         if not self._form.keep():
-            self.__last_message = urllib.quote(self.__last_message, \
-                    ' !"#&\'()*+,-./:;<=>?@\[\]_|\t]äöüõÄÖÜÕ')
+            self.__last_message = urllib.quote(
+                self.__last_message, ' !"#&\'()*+,-./:;<=>?@\[\]_|\t]')
 
         self.__last_message += "\n"
         self._log.write(self.__last_message)
@@ -267,7 +296,6 @@ class Logger(object):
         return self._log.contains(data, self._form)
 
 
-
 class AppLog(Logger):
 
     __metaclass__ = singleton.SingletonType
@@ -276,25 +304,25 @@ class AppLog(Logger):
         Logger.__init__(self)
         self._form = AppLogFormat()
         self.__log_i = LogFile(
-                os.path.join(
-                    evcommon.EVREG_CONFIG,
-                    'common',
-                    evcommon.APPLICATION_LOG_FILE))
+            os.path.join(
+                evcommon.EVREG_CONFIG,
+                'common',
+                evcommon.APPLICATION_LOG_FILE))
 
         self.__log_e = LogFile(
-                os.path.join(
-                    evcommon.EVREG_CONFIG,
-                    'common',
-                    evcommon.ERROR_LOG_FILE))
+            os.path.join(
+                evcommon.EVREG_CONFIG,
+                'common',
+                evcommon.ERROR_LOG_FILE))
 
         self.__log_d = LogFile(
-                os.path.join(
-                    evcommon.EVREG_CONFIG,
-                    'common',
-                    evcommon.DEBUG_LOG_FILE))
+            os.path.join(
+                evcommon.EVREG_CONFIG,
+                'common',
+                evcommon.DEBUG_LOG_FILE))
 
-    def set_app(self, app, elid = None):
-        #remove elid
+    def set_app(self, app, elid=None):
+        # remove elid
         self._form.set_app(app)
         self._form.set_elid(elid)
 
@@ -302,7 +330,7 @@ class AppLog(Logger):
         self._form.set_person(person)
 
     def log(self, msg):
-        #add elid
+        # add elid
         self._log = self.__log_i
         self.log_info(message=msg)
 

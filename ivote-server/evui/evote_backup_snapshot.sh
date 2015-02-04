@@ -13,6 +13,10 @@ HELP
 	exit 1
 fi
 
+# give feedback that the process has started
+# this was asked for to avoid confusion after the sudo password prompt
+echo "$0 $*"
+
 if ! mkdir -p "$2"; then
 	echo "Cannot create destination directory ($2)" 2>&1
 	exit 1
@@ -74,6 +78,13 @@ lvcreate -l "$FREE_SPACE" -s -p r -n "$EVOTE_SNAPSHOT_NAME" "$SRC_DEV"
 trap lvm_cleanup ERR EXIT
 
 # copy the data
+if [ "${SUDO_USER}" ]; then
+	SPLIT="sudo -u ${SUDO_USER} split"
+else
+	SPLIT="split"
+fi
 mount -o ro "/dev/$LVM_GROUP/$EVOTE_SNAPSHOT_NAME" "$SNAPSHOT_MOUNT"
 tar --exclude-from "$NOBACKUP" -C "$SNAPSHOT_MOUNT/$SNAPSHOT_DIR" -cz "$SRC_DIR_BASE" | \
-	split -b "$DVD_CHUNK_SIZE" -d - "$BACKUP_PREFIX"
+	${SPLIT} -b "$DVD_CHUNK_SIZE" -d - "$BACKUP_PREFIX"
+
+exit 0

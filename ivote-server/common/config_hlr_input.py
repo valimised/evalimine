@@ -12,13 +12,10 @@ To view a copy of this license, visit
 http://creativecommons.org/licenses/by-nc-nd/3.0/.
 """
 
-import os
+import shutil
 import sys
 import ksum
 from election import Election
-
-def check_file(ffile):
-    return os.access(ffile, os.F_OK)
 
 
 def usage():
@@ -35,7 +32,6 @@ def main_function():
     el_id = sys.argv[1]
     _if = sys.argv[2]
 
-
     if not ksum.check(_if, True):
         print "Kontrollsumma ei klapi"
         sys.exit(1)
@@ -43,7 +39,7 @@ def main_function():
     reg = Election().get_sub_reg(el_id)
     reg.ensure_key(['hlr', 'input'])
     dst = reg.path(['hlr', 'input', 'votes'])
-    os.system("cp " + _if + " " + dst)
+    shutil.copy(_if, dst)
     ksum.store(dst)
     Election().config_hlr_input_elid_done(el_id)
 

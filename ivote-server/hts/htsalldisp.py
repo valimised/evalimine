@@ -27,13 +27,6 @@ import time
 def __return_message(result, message):
     return evcommon.VERSION + '\n' + result + '\n' + message
 
-def bad_cgi_input():
-    ret = evcommon.EVOTE_ERROR
-    msg = EV_ERRORS.TEHNILINE_VIGA
-    AppLog().set_app('HTS-ALL')
-    AppLog().log_error("Vigased sisendparameetrid")
-    return __return_message(ret, msg)
-
 
 def consistency(sha_in):
     _htsd = HTSAllDispatcher()
@@ -82,10 +75,12 @@ def store_vote(sha_in, code_in, vote_in):
         msg = EV_ERRORS.TEHNILINE_VIGA
     return __return_message(ret, msg)
 
+
 def verify_vote(vote_id):
     _htsd = HTSAllDispatcher()
     ret, msg = _htsd.verify(vote_id)
     return __return_message(ret, msg)
+
 
 class HTSAllDispatcher:
 
@@ -150,7 +145,7 @@ class HTSAllDispatcher:
                 s_time = time.time()
                 AppLog().log('Vaheauditi aruanne: ALGUS')
                 self.__all.status(fo, verify)
-                p_time = time.strftime("%H:%M:%S", \
+                p_time = time.strftime("%H:%M:%S",
                         time.gmtime(long(time.time() - s_time)))
 
                 return 'Vaheauditi aruanne koostatud. Aega kulus %s.' % p_time
@@ -159,7 +154,6 @@ class HTSAllDispatcher:
                 return 'Tehniline viga vaheauditi aruande koostamisel'
         finally:
             AppLog().log('Vaheauditi aruanne (%s): LõPP' % p_time)
-
 
     def verify(self, vote_id):
         try:
@@ -172,8 +166,8 @@ class HTSAllDispatcher:
             return evcommon.VERIFY_ERROR, msg
         except:
             AppLog().log_exception()
-            return evcommon.VERIFY_ERROR, EvMessage().get_str(\
-                    "TECHNICAL_ERROR_VOTE_VERIFICATION", \
+            return evcommon.VERIFY_ERROR, EvMessage().get_str(
+                    "TECHNICAL_ERROR_VOTE_VERIFICATION",
                     evstrings.TECHNICAL_ERROR_VOTE_VERIFICATION)
         finally:
             AppLog().log("Vote verification: END")
@@ -254,7 +248,7 @@ def main_function():
 
     except SystemExit:
         raise
-    except Exception, _e:
+    except Exception as _e:
         print _e
         sys.exit(1)
     except:

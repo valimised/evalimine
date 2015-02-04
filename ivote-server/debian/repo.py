@@ -49,7 +49,7 @@ if __name__ == "__main__":
 
     print 'Lähtestan repositooriumi'
     out_f = open('%s/Packages.gz' % fullrepo, 'wb')
-    p1 = subprocess.Popen(['dpkg-scanpackages', binpath, '/dev/null'], \
+    p1 = subprocess.Popen(['dpkg-scanpackages', binpath, '/dev/null'],
                                         stdout = subprocess.PIPE, cwd = repo)
     p2 = subprocess.Popen(['gzip', '-9c'], stdin = p1.stdout, stdout = out_f)
     p2.communicate()
@@ -60,7 +60,7 @@ if __name__ == "__main__":
     out_f = open('%s/%s/info' % (repo, '.disk'), 'wb')
     out_f.write('E-hääletamissüsteem')
     out_f.close()
-    subprocess.call('genisoimage -input-charset utf8 -r -J -o %s.iso %s' % \
+    subprocess.call('genisoimage -input-charset utf8 -r -J -o %s.iso %s' %
                                                     (repo, repo), shell = True)
 
 # vim:set ts=4 sw=4 et fileencoding=utf8:

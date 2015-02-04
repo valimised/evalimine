@@ -92,7 +92,6 @@ install-indep:
 	install -m 755 common/monitoring.py $(HTS_DIR)/$(SHARE_DIR)/hts_monitor.py
 	install -m 755 common/apply_changes.py $(HTS_DIR)/$(BIN_DIR)
 	install -m 755 common/hts_state.py $(HTS_DIR)/$(BIN_DIR)
-	install -m 755 common/show_voters_files_history.py $(HTS_DIR)/$(BIN_DIR)
 
 	# evote-hes
 	mkdir $(HES_DIR)/$(WWW_DIR)/data
@@ -108,6 +107,7 @@ install-indep:
 	install -m 644 hes/DigiDocService_types.py $(HES_DIR)/$(PACKAGE_DIR)
 	install -m 644 hes/vote_analyzer.py $(HES_DIR)/$(PACKAGE_DIR)
 
+	install -m 755 hes/purge_sessions.py $(HES_DIR)/$(SHARE_DIR)
 	install -m 755 cgi/hes-cgi.py $(HES_DIR)/$(WWW_DIR)/hes.cgi
 	install -m 755 cgi/mobid-cgi.py $(HES_DIR)/$(WWW_DIR)/mobid.cgi
 	install -m 755 cgi/hes-verify-vote-cgi.py $(HES_DIR)/$(WWW_DIR)/hes-verify-vote.cgi
@@ -120,8 +120,6 @@ install-indep:
 	install -m 755 common/apply_changes.py $(HES_DIR)/$(BIN_DIR)
 	install -m 755 common/config_hth.py $(HES_DIR)/$(BIN_DIR)
 	install -m 755 common/check_consistency.py $(HES_DIR)/$(BIN_DIR)
-	install -m 755 common/replace_candidates.py $(HES_DIR)/$(BIN_DIR)
-	install -m 755 common/show_voters_files_history.py $(HES_DIR)/$(BIN_DIR)
 
 	# prepare
 	install -m 644 debian/evote-prepare.lintian $(PREPARE_DIR)/$(LINTIAN_DIR)/evote-prepare
@@ -168,9 +166,12 @@ install-arch:
 	install -m 644 common/singleton.py $(COMMON_DIR)/$(PACKAGE_DIR)
 	install -m 644 common/ticker.py $(COMMON_DIR)/$(PACKAGE_DIR)
 	install -m 644 common/autocmd.py $(COMMON_DIR)/$(PACKAGE_DIR)
+	install -m 644 common/purge.py $(COMMON_DIR)/$(PACKAGE_DIR)
+	install -m 644 common/sigverify.py $(COMMON_DIR)/$(PACKAGE_DIR)
 
 	install -m 644 cgi/cgilog.py $(COMMON_DIR)/$(PACKAGE_DIR)
 	install -m 644 cgi/cgivalidator.py $(COMMON_DIR)/$(PACKAGE_DIR)
+	install -m 644 cgi/sigvalidator.py $(COMMON_DIR)/$(PACKAGE_DIR)
 
 	install -m 644 pybdoc/python/bdocpython.py $(COMMON_DIR)/$(PACKAGE_DIR)
 	chrpath -d pybdoc/python/.libs/_bdocpython.so
@@ -183,6 +184,8 @@ install-arch:
 	install -m 755 common/config_common.py $(COMMON_DIR)/$(BIN_DIR)
 	install -m 755 common/init_conf.py $(COMMON_DIR)/$(BIN_DIR)
 	install -m 755 common/config_bdoc.py $(COMMON_DIR)/$(BIN_DIR)
+	install -m 755 common/show_config.py $(COMMON_DIR)/$(BIN_DIR)
+	install -m 755 common/show_config_files_history.py $(COMMON_DIR)/$(BIN_DIR)
 
 	install -m 755 evui/evote_ui.sh $(COMMON_DIR)/$(SHARE_DIR)/evote_ui
 	install -m 755 evui/evote_backup_snapshot.sh \
@@ -200,7 +203,6 @@ install-arch:
 	install -m 644 debian/copyright $(HLR_DIR)/$(DOC_DIR)/evote-hlr/copyright
 	install -m 644 hlr/README $(HLR_DIR)/$(DOC_DIR)/evote-hlr/README
 
-	install -m 755 common/replace_candidates.py $(HLR_DIR)/$(BIN_DIR)
 	install -m 755 hlr/threaded_decrypt $(HLR_DIR)/$(BIN_DIR)
 	install -m 755 hlr/sign_data $(HLR_DIR)/$(BIN_DIR)
 	install -m 755 hlr/hlr.py $(HLR_DIR)/$(SHARE_DIR)

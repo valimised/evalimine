@@ -31,8 +31,8 @@ if not evcommon.testrun():
     evlog.AppLog().set_app('MID')
 
     try:
-        has_sess = form.has_key(evcommon.POST_SESS_ID)
-        has_poll = form.has_key(evcommon.POST_MID_POLL)
+        has_sess = evcommon.POST_SESS_ID in form
+        has_poll = evcommon.POST_MID_POLL in form
         if has_sess:
             if cgivalidator.validate_sessionid(form):
                 sessionid.setsid(form.getvalue(evcommon.POST_SESS_ID))
@@ -40,7 +40,7 @@ if not evcommon.testrun():
                 req_params = [evcommon.POST_MID_POLL, evcommon.POST_SESS_ID]
                 res, logline = cgivalidator.validate_form(form, req_params)
                 if res:
-                    result = mid.poll()
+                    result = mid.poll(form)
                 else:
                     evlog.log_error(logline)
             else:

@@ -32,7 +32,7 @@ def _has(ffile):
 
 def _check_file(ffile):
     if not _has(ffile):
-        raise Exception("Faili " + ffile + " ei eksisteeri")
+        raise Exception("Faili " + ffile + " pole olemas")
 
 
 def _read_sha256(ffile):
@@ -45,8 +45,7 @@ def _read_sha256(ffile):
 
 
 def compute_voters_files_sha256(voters_file_hashes_dir):
-    file_list = os.listdir(voters_file_hashes_dir)
-    file_list.sort()
+    file_list = sorted(os.listdir(voters_file_hashes_dir))
     _s = hashlib.sha256()
     for i in file_list:
         _s.update(i)
@@ -63,6 +62,7 @@ def compute(ffile):
         return _s.hexdigest()
     finally:
         _rf.close()
+
 
 def compute_sha1(ffile):
     with open(ffile, "r") as f:
@@ -92,7 +92,7 @@ def check(data_file, strict = False):
             method = SHA256
 
     fn = "%s.%s" % (data_file, SHA1)
-    if (checksum_file == None) and _has(fn):
+    if (checksum_file is None) and _has(fn):
         with open(fn, "r") as f:
             checksum_file = f.read().strip()
             method = SHA1
@@ -123,7 +123,7 @@ def usage():
 if __name__ == "__main__":
     if len(sys.argv) != 3:
         usage()
-    if sys.argv[1] != "store" and sys.argv[1] != "check":
+    if sys.argv[1] not in ["store", "check"]:
         usage()
 
     if sys.argv[1] == "store":

@@ -18,22 +18,22 @@ import evcommon
 import bdocconfig
 import subprocess
 
+
 def set_bdoc_conf(conf_dir):
     conf = bdocconfig.BDocConfig()
     conf.load(conf_dir)
     conf.save(Election().get_bdoc_conf())
     subprocess.check_call(['c_rehash', Election().get_bdoc_ca()])
 
-def usage():
 
+def usage():
     """
-    Laeb BDoc spetsiifilisi konfiguratsioonifaile.
+    Laadib BDoc spetsiifilisi konfiguratsioonifaile.
     Sertifikaatide jaoks bdoc.conf.
     """
 
-    if (len(sys.argv) != 2):
-        sys.stderr.write('Kasutamine: ' + sys.argv[0] + \
-            ' <conf_dir>\n')
+    if len(sys.argv) != 2:
+        sys.stderr.write('Kasutamine: ' + sys.argv[0] + ' <conf_dir>\n')
         sys.exit(1)
 
     evcommon.checkfile(sys.argv[1])
@@ -48,7 +48,7 @@ def main_function():
     except SystemExit:
         sys.stderr.write('Konfiguratsiooni laadimine nurjus\n')
         sys.exit(1)
-    except Exception, ex:
+    except Exception as ex:
         Election().config_bdoc_done(False)
         sys.stderr.write('Konfiguratsiooni laadimine nurjus: %s\n' % str(ex))
         sys.exit(1)

@@ -1,0 +1,11 @@
+evote-common/
+evote-hes/
+evote-hlr/
+evote-hts/
+evote-prepare/
+
+*.debhelper
+*.log
+*.substvars
+
+files

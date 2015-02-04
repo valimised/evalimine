@@ -21,6 +21,7 @@ import os
 import tempfile
 import shutil
 
+
 def check_bdoc_conf(conf_dir):
 
     tmpdir = None
@@ -54,13 +55,12 @@ def check_bdoc_conf(conf_dir):
 
 
 def usage():
-
     """
     Kontrollib BDoc konfiguratsiooni.
     """
 
-    if (len(sys.argv) != 2):
-        sys.stderr.write('Kasutamine: ' + sys.argv[0] + \
+    if len(sys.argv) != 2:
+        sys.stderr.write('Kasutamine: ' + sys.argv[0] +
             ' <conf_dir>\n')
         sys.exit(1)
 
@@ -80,7 +80,7 @@ def main_function():
     except SystemExit:
         sys.stderr.write('Konfiguratsiooni kontroll nurjus\n')
         sys.exit(1)
-    except Exception, ex:
+    except Exception as ex:
         sys.stderr.write('Konfiguratsiooni kontroll nurjus: %s\n' % str(ex))
         sys.exit(1)
 

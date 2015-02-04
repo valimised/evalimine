@@ -20,6 +20,7 @@ import time
 
 import election
 import evcommon
+import evlog
 import evreg
 
 # Commands to automatically execute.
@@ -48,9 +49,23 @@ TIME_FORMAT = "%H:%M %d.%m.%Y"
 REFRESH_PID_KEY = ["common"]
 REFRESH_PID_VALUE = "refresh.pid"
 
-# Translated messages.
-ERROR_SUBPROCESS = "Programmi väljakutsel esines viga: %s"
-ERROR_SCHEDULE = "Automaatse sündmuse seadistamine ebaõnnestus!"
+# Messages shown in the UI.
+UI_ERROR_SUBPROCESS = "Programmi \"%s\" väljakutsel esines viga: %s"
+UI_ERROR_SCHEDULED = "Automaatne sündmus \"%s\" on juba plaanitud töönumbriga %i ajaks %s."
+UI_ERROR_SCHEDULE = "Automaatse sündmuse \"%s\" seadistamine ebaõnnestus."
+UI_SCHEDULED = "Automaatne sündmus \"%s\" plaanitud töönumbriga %i ajaks %s."
+UI_UNSCHEDULED = "Automaatne sündmus \"%s\" töönumbriga %s ajal %s eemaldatud."
+
+# Messages written to log files.
+LOG_ERROR_SUBPROCESS = "Error in subprocess \"%s\": %s"
+LOG_ERROR_SCHEDULED = "Automatic command \"%s\" already scheduled with job number %i at %s."
+LOG_ERROR_SCHEDULE = "Scheduling the command \"%s\" failed."
+LOG_SCHEDULED = "Automatic command \"%s\" scheduled with job number %i at %s."
+LOG_UNSCHEDULED = "Automatic command \"%s\" with job number %i at %s unscheduled."
+LOG_EXECUTING = "Executing automatic command \"%s\"."
+LOG_ERROR_UNKNOWN = "Unknown command \"%s\"."
+LOG_ERROR_STATE = "Unexpected state for command \"%s\" (%s, expected %s), doing nothing."
+
 
 def stop_grace_period():
     """Get the configured time between COMMAND_PREPARE_STOP and COMMAND_STOP."""
@@ -60,17 +75,21 @@ def stop_grace_period():
     except (IOError, LookupError):
         return None
 
+
 def set_stop_grace_period(grace):
     """Configure the time between COMMAND_PREPARE_STOP and COMMAND_STOP."""
     reg = evreg.Registry(root=evcommon.EVREG_CONFIG)
     reg.ensure_key(AUTOCMD_KEY)
     reg.create_integer_value(AUTOCMD_KEY, "grace", grace)
 
+
 def _job_value(cmd):
     return cmd + "_job"
 
+
 def _time_value(cmd):
     return cmd + "_time"
+
 
 def scheduled(cmd):
     reg = evreg.Registry(root=evcommon.EVREG_CONFIG)
@@ -83,13 +102,15 @@ def scheduled(cmd):
         return None
     return job, timestr
 
+
 def _at(timestr, command):
     proc = subprocess.Popen(("at", timestr),
             stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     _, err = proc.communicate(command)
 
     if proc.returncode != 0:
-        print ERROR_SUBPROCESS % err
+        evlog.log_error(LOG_ERROR_SUBPROCESS % ("at", err))
+        print UI_ERROR_SUBPROCESS % ("at", err)
         return None
 
     for line in err.splitlines():
@@ -97,13 +118,19 @@ def _at(timestr, command):
             _, job, _ = line.split(None, 2)
     return int(job)
 
+
 def schedule(cmd, tstruct):
-    if scheduled(cmd):
-        raise Exception, "Command already scheduled"
+    sched = scheduled(cmd)
+    if sched:
+        job, timestr = sched
+        evlog.log_error(LOG_ERROR_SCHEDULED % (cmd, job, timestr))
+        print UI_ERROR_SCHEDULED % (cmd, job, timestr)
+        return
     timestr = time.strftime(TIME_FORMAT, tstruct)
     job = _at(timestr, "python -m %s %i %s" % (MODULE_AUTOCMD, EXPECTED[cmd], cmd))
     if not job:
-        print ERROR_SCHEDULE
+        evlog.log_error(LOG_ERROR_SCHEDULE % cmd)
+        print UI_ERROR_SCHEDULE % cmd
         return
 
     reg = evreg.Registry(root=evcommon.EVREG_CONFIG)
@@ -111,11 +138,17 @@ def schedule(cmd, tstruct):
     reg.create_integer_value(AUTOCMD_KEY, _job_value(cmd), job)
     reg.create_string_value(AUTOCMD_KEY, _time_value(cmd), timestr)
 
+    evlog.log(LOG_SCHEDULED % (cmd, job, timestr))
+    print UI_SCHEDULED % (cmd, job, timestr)
+
+
 def _atrm(job):
     try:
         subprocess.check_output(("atrm", str(job)), stderr=subprocess.STDOUT)
     except subprocess.CalledProcessError as e:
-        print ERROR_SUBPROCESS % e.output
+        evlog.log_error(LOG_ERROR_SUBPROCESS % ("atrm", e.output))
+        print UI_ERROR_SUBPROCESS % ("atrm", e.output)
+
 
 def _clean_reg(cmd):
     reg = evreg.Registry(root=evcommon.EVREG_CONFIG)
@@ -128,13 +161,22 @@ def _clean_reg(cmd):
     except OSError:
         pass
 
-def unschedule(cmd, job):
-    _atrm(job)
-    _clean_reg(cmd)
+
+def unschedule(cmd):
+    sched = scheduled(cmd)
+    if sched:
+        job, timestr = sched
+        _atrm(job)
+
+        evlog.log(LOG_UNSCHEDULED % (cmd, job, timestr))
+        print UI_UNSCHEDULED % (cmd, job, timestr)
+
+    _clean_reg(cmd) # Always.
 
 def _execute_start():
     if election.ElectionState().get() == election.ETAPP_ENNE_HAALETUST:
         election.ElectionState().next()
+
 
 def _execute_prepare_stop():
     import datetime
@@ -149,27 +191,27 @@ def _execute_prepare_stop():
 
         dt = datetime.datetime.strptime(time, TIME_FORMAT)
         dt += datetime.timedelta(minutes=minutes)
-        print "Scheduling command \"stop\" for %s" % dt
         schedule(COMMAND_STOP, dt.timetuple())
+
 
 def _execute_stop():
     if election.ElectionState().election_on():
         election.ElectionState().next()
 
+
 def _signal_ui():
-    print "Signaling UI to refresh...",
     try:
         reg = evreg.Registry(root=evcommon.EVREG_CONFIG)
         pid = reg.read_integer_value(REFRESH_PID_KEY, REFRESH_PID_VALUE).value
     except IOError:
-        print "No UI PID found."
+        pass # No UI PID found.
     else:
-        print "Found UI with PID %i" % pid
-        os.kill(pid, signal.SIGUSR1)
+        os.kill(pid, signal.SIGUSR1) # Found UI PID, signal to refresh.
 
 def _main(expected, cmd):
-    if election.ElectionState().get() == int(expected):
-        print "Executing automatic command \"%s\"" % cmd
+    state = election.ElectionState().get()
+    if state == int(expected):
+        evlog.log(LOG_EXECUTING % cmd)
         if cmd == COMMAND_START:
             _execute_start()
         elif cmd == COMMAND_PREPARE_STOP:
@@ -177,12 +219,12 @@ def _main(expected, cmd):
         elif cmd == COMMAND_STOP:
             _execute_stop()
         else:
-            raise Exception, "Unknown command"
-        _clean_reg(cmd)
+            evlog.log_error(LOG_ERROR_UNKNOWN % cmd)
+            raise Exception
         _signal_ui()
-        print "Done."
     else:
-        print "Unexpected state, nothing to do."
+        evlog.log_error(LOG_ERROR_STATE % (cmd, state, expected))
+    _clean_reg(cmd)
 
 if __name__ == "__main__":
     if len(sys.argv) < 3:

@@ -31,10 +31,10 @@ ETAPP_TYHISTUS = 3
 ETAPP_LUGEMINE = 4
 
 G_STATES = {
-        ETAPP_ENNE_HAALETUST: 'Seadistusperiood',
-        ETAPP_HAALETUS: 'Hääletusperiood',
-        ETAPP_TYHISTUS: 'Tühistusperiood',
-        ETAPP_LUGEMINE: 'Lugemisperiood'}
+    ETAPP_ENNE_HAALETUST: 'Seadistusperiood',
+    ETAPP_HAALETUS: 'Hääletusperiood',
+    ETAPP_TYHISTUS: 'Tühistusperiood',
+    ETAPP_LUGEMINE: 'Lugemisperiood'}
 
 HES_STATES = {
     ETAPP_ENNE_HAALETUST: ETAPP_HAALETUS,
@@ -111,10 +111,6 @@ class ElectionState:
         _state = self.get()
         return _state in [ETAPP_ENNE_HAALETUST, ETAPP_HAALETUS]
 
-    def can_replace_candidates(self):
-        _state = self.get()
-        return _state in [ETAPP_ENNE_HAALETUST]
-
     def can_load_conf(self):
         _state = self.get()
         return _state in [ETAPP_ENNE_HAALETUST]
@@ -132,7 +128,7 @@ class Election:
     def get_voters_files_sha256(self):
         if self.reg.check(['common', 'voters_files_sha256']):
             return \
-                self.reg.read_string_value(\
+                self.reg.read_string_value(
                     ['common'], 'voters_files_sha256').value
         return ''
 
@@ -149,10 +145,9 @@ class Election:
         return self.reg.check(['common', 'hlr'])
 
     def set_server_str(self, srvstr):
-        if srvstr in evcommon.APPTYPES:
-            self.reg.ensure_key(['common', srvstr])
-        else:
+        if srvstr not in evcommon.APPTYPES:
             raise Exception('Vigane serveri tüüp')
+        self.reg.ensure_key(['common', srvstr])
 
     def get_server_str(self):
         if self.is_hes():
@@ -161,29 +156,42 @@ class Election:
             return 'hts'
         elif self.is_hlr():
             return 'hlr'
-        else:
-            raise Exception('Vigane serveri tüüp')
+        raise Exception('Vigane serveri tüüp')
 
-    def copy_voters_file(self, elid, server, voters_file):
-
-        voters_files = 'voters_files'
-        _r = self.get_sub_reg(elid, [server])
-        _r.ensure_key([voters_files])
-
-        time_str = time.strftime("%Y%m%d%H%M%S")
-        copy_voters_file = _r.path([voters_files, time_str + '_' + \
-            os.path.basename(voters_file)])
-        shutil.copyfile(voters_file, copy_voters_file)
-
-        voters_file_sha256 = ksum.compute(voters_file)
+    def recalculate_voters_files_hash(self):
         voters_file_hashes = ['common', 'voters_file_hashes']
-        self.reg.ensure_key(voters_file_hashes)
-        self.reg.create_string_value(voters_file_hashes, voters_file_sha256, '')
-
         voters_files_sha256 = \
             ksum.compute_voters_files_sha256(self.reg.path(voters_file_hashes))
-        self.reg.create_string_value(['common'], \
-            'voters_files_sha256', voters_files_sha256)
+        self.reg.create_string_value(
+            ['common'], 'voters_files_sha256', voters_files_sha256)
+
+    def add_voters_file_hash(self, voters_file):
+        voters_file_hash = ksum.compute(voters_file)
+        voters_file_hashes = ['common', 'voters_file_hashes']
+        self.reg.ensure_key(voters_file_hashes)
+        self.reg.create_string_value(voters_file_hashes, voters_file_hash, '')
+        self.recalculate_voters_files_hash()
+
+    def delete_voters_file_hash(self, voters_file_hash):
+        voters_file_hashes = ['common', 'voters_file_hashes']
+        self.reg.delete_value(voters_file_hashes, voters_file_hash)
+        self.recalculate_voters_files_hash()
+
+    def copy_config_file(self, elid, server, config_file, section):
+
+        _r = self.get_sub_reg(elid, [server])
+        _r.ensure_key([section])
+
+        time_str = time.strftime("%Y%m%d%H%M%S")
+        copy_config_file = _r.path([section, time_str + '_' +
+                                    os.path.basename(config_file)])
+        shutil.copyfile(config_file, copy_config_file)
+
+    def copy_voter_public_key_file(self, elid, voter_public_key_file):
+
+        _r = self.get_sub_reg(elid, ['common'])
+        voter_public_key_copy_file = _r.path([evcommon.VOTER_PUBLIC_KEY])
+        shutil.copyfile(voter_public_key_file, voter_public_key_copy_file)
 
     def get_bdoc_conf(self):
         return self.reg.path([evcommon.BDOC])
@@ -231,25 +239,35 @@ class Election:
         self.reg.create_string_value(['common'], 'htspath', path)
 
     def get_hts_verify_path(self):
-        return self.reg.read_string_value(['common'], 'htsverifypath').value.rstrip()
+        return self.reg.read_string_value(
+            ['common'], 'htsverifypath').value.rstrip()
 
     def set_hts_verify_path(self, path):
         self.reg.ensure_key(['common'])
         self.reg.create_string_value(['common'], 'htsverifypath', path)
 
     def get_verification_time(self):
-        return self.reg.read_integer_value(['common'], 'verification_time').value
+        return self.reg.read_integer_value(
+            ['common'], 'verification_time').value
 
     def set_verification_time(self, time):
         self.reg.ensure_key(['common'])
         self.reg.create_integer_value(['common'], 'verification_time', time)
 
     def get_verification_count(self):
-        return self.reg.read_integer_value(['common'], 'verification_count').value
+        return self.reg.read_integer_value(
+            ['common'], 'verification_count').value
 
     def set_verification_count(self, count):
         self.reg.ensure_key(['common'])
         self.reg.create_integer_value(['common'], 'verification_count', count)
+
+    def get_session_length(self):
+        return self.reg.read_integer_value(['common'], 'session_length').value
+
+    def set_session_length(self, minutes):
+        self.reg.ensure_key(['common'])
+        self.reg.create_integer_value(['common'], 'session_length', minutes)
 
     def get_questions_obj(self, root):
         qlist = self.get_questions()
@@ -270,7 +288,7 @@ class Election:
     def has_id(self, elid):
         return self.reg.check(['questions', elid])
 
-    def get_sub_reg(self, elid, sub=['']): # pylint: disable=W0102
+    def get_sub_reg(self, elid, sub=['']):  # pylint: disable=W0102
         if self.has_id(elid):
             return \
                 evreg.Registry(root=self.reg.path(['questions', elid] + sub))
@@ -281,24 +299,30 @@ class Election:
         return self.reg
 
     def delete_question(self, elid):
+        sub = self.get_sub_reg(elid)
+        key = [self.get_server_str(), evcommon.VOTERS_FILES]
+        if sub.check(key):
+            for vf in sub.list_keys(key):
+                self.delete_voters_file_hash(ksum.compute(sub.path(key + [vf])))
+
         self.reg.delete_key(['questions', elid])
         if self.count_questions() == 0:
             self.init_conf_done(False)
 
     def new_question(self, el_id, el_type, el_desc):
-        if formatutil.is_valimiste_identifikaator(el_id):
-            key = ['questions', el_id, 'common']
-            self.reg.ensure_key(key)
-            self.reg.create_string_value(key, ELECTION_ID, el_id)
-            quest = question.Question(el_id, None, \
-                evreg.Registry(root=self.reg.path(['questions', el_id])))
-            g_common_keys = ['common/rights']
-            quest.create_keys(g_common_keys)
-            quest.set_type(int(el_type))
-            quest.set_descr(el_desc)
-            return quest
-        else:
+        if not formatutil.is_valimiste_identifikaator(el_id):
             raise Exception('Vigase formaadiga valimiste identifikaator')
+        key = ['questions', el_id, 'common']
+        self.reg.ensure_key(key)
+        self.reg.create_string_value(key, ELECTION_ID, el_id)
+        quest = question.Question(
+            el_id, None,
+            evreg.Registry(root=self.reg.path(['questions', el_id])))
+        g_common_keys = ['common/rights']
+        quest.create_keys(g_common_keys)
+        quest.set_type(int(el_type))
+        quest.set_descr(el_desc)
+        return quest
 
     def restore_init_status(self):
         if self.is_hes():
@@ -324,8 +348,8 @@ class Election:
             pass
 
     def get_election_type_str(self, el_id):
-        return evcommon.G_TYPES[self.get_sub_reg(el_id)\
-                .read_integer_value(['common'], 'type').value]
+        return evcommon.G_TYPES[self.get_sub_reg(el_id).read_integer_value(
+            ['common'], 'type').value]
 
     def _do_flag(self, flag, do_set):
         if do_set:
@@ -364,13 +388,16 @@ class Election:
         return True
 
     def is_config_hlr_input_elid_done(self, elid):
-        return \
-            self.reg.check(['questions', elid, 'common', \
-                evcommon.CONFIG_HLR_INPUT_DONE])
+        return self.reg.check(
+            ['questions', elid, 'common', evcommon.CONFIG_HLR_INPUT_DONE])
 
     def config_hlr_input_elid_done(self, elid, done=True):
-        self._do_flag(['questions', elid, 'common', \
-            evcommon.CONFIG_HLR_INPUT_DONE], done)
+        self._do_flag(
+            ['questions', elid, 'common', evcommon.CONFIG_HLR_INPUT_DONE], done)
+
+    def is_config_voter_public_key_elid_done(self, elid):
+        return self.reg.check(
+            ['questions', elid, 'common', evcommon.VOTER_PUBLIC_KEY])
 
     def is_config_server_done(self):
         for elid in self.get_questions():
@@ -379,12 +406,12 @@ class Election:
         return True
 
     def is_config_server_elid_done(self, elid):
-        return self.reg.check(['questions', elid, 'common', \
-            evcommon.CONFIG_SERVER_DONE])
+        return self.reg.check(
+            ['questions', elid, 'common', evcommon.CONFIG_SERVER_DONE])
 
     def config_server_elid_done(self, elid, done=True):
-        self._do_flag(['questions', elid, 'common', \
-            evcommon.CONFIG_SERVER_DONE], done)
+        self._do_flag(
+            ['questions', elid, 'common', evcommon.CONFIG_SERVER_DONE], done)
 
     def is_voters_list_disabled(self):
         return self.reg.check(['common', evcommon.VOTERS_LIST_IS_DISABLED])
@@ -392,7 +419,7 @@ class Election:
     def is_hes_configured(self):
         return self.is_config_hth_done() and self.is_config_bdoc_done() and \
             self.is_config_server_done() and self.is_init_conf_done() and \
-            self.is_config_mid_done()
+            self.is_config_mid_done() and self.is_config_session_done()
 
     def is_hts_configured(self):
         return self.is_config_bdoc_done() and \
@@ -405,8 +432,8 @@ class Election:
             self.is_init_conf_done()
 
     def toggle_check_voters_list(self, enable):
-        self._do_flag(['common', evcommon.VOTERS_LIST_IS_DISABLED], \
-            (not enable))
+        self._do_flag(
+            ['common', evcommon.VOTERS_LIST_IS_DISABLED], (not enable))
 
     def get_mid_url(self):
         return self.reg.read_string_value(['common', 'mid'], 'url').value
@@ -424,10 +451,10 @@ class Election:
             self.reg.ensure_key(['common', 'mid'])
             self.reg.create_string_value(['common', 'mid'], 'url', url)
             self.reg.create_string_value(['common', 'mid'], 'name', name)
-            self.reg.create_string_value(\
-                                    ['common', 'mid'], 'auth_msg', auth_msg)
-            self.reg.create_string_value(\
-                                    ['common', 'mid'], 'sign_msg', sign_msg)
+            self.reg.create_string_value(
+                ['common', 'mid'], 'auth_msg', auth_msg)
+            self.reg.create_string_value(
+                ['common', 'mid'], 'sign_msg', sign_msg)
             self.config_mid_done()
         except:
             self.config_mid_done(False)
@@ -459,6 +486,13 @@ class Election:
         try:
             self.get_verification_time()
             self.get_verification_count()
+            return True
+        except (IOError, LookupError):
+            return False
+
+    def is_config_session_done(self):
+        try:
+            self.get_session_length()
             return True
         except (IOError, LookupError):
             return False

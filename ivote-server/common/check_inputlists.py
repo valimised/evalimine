@@ -32,9 +32,10 @@ class BufferedLog:
 
 
 def usage():
-    sys.stderr.write('Kasutamine: ' + sys.argv[0] + \
-        ' -d <jaoskondade-fail> -c <valikute-fail> -v <valijate-fail>\n'\
+    sys.stderr.write('Kasutamine: ' + sys.argv[0] +
+        ' -d <jaoskondade-fail> -c <valikute-fail> -v <valijate-fail>\n'
         'NB! Failid ei ole BDOC failid, vaid tekstifailid.\n')
+
 
 def check_inputlists(args):
 
@@ -48,7 +49,7 @@ def check_inputlists(args):
 
     try:
         opts, args = getopt.getopt(args[1:], "d:c:v:h")
-    except getopt.GetoptError, err:
+    except getopt.GetoptError as err:
         print str(err)
         usage()
         sys.exit(2)

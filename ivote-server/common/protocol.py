@@ -14,11 +14,13 @@ http://creativecommons.org/licenses/by-nc-nd/3.0/.
 import evcommon
 from evmessage import EV_ERRORS
 
+
 def http_response(content):
     print 'Content-Type: text/plain'
     print 'Content-Length: %d' % (len(content) + 1)
     print
     print content
+
 
 def msg_ok(msg):
     return evcommon.VERSION + '\n' + evcommon.EVOTE_OK + '\n' + msg
@@ -40,8 +42,10 @@ def msg_error_technical():
 def msg_mobid_auth_init_ok(sesscode, challenge):
     return msg_ok(sesscode + '\t' + challenge)
 
+
 def msg_mobid_sign_init_ok(challenge):
     return msg_ok(challenge)
+
 
 def msg_mobid_poll():
     return msg_error(evcommon.EVOTE_POLL, '')

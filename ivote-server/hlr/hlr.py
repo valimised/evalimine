@@ -41,7 +41,8 @@ README = "README"
 
 ENV_EVOTE_TMPDIR = "EVOTE_TMPDIR"
 
-G_DECRYPT_ERRORS = {1: 'Dekrüpteerija sai vale arvu argumente',
+G_DECRYPT_ERRORS = {
+    1: 'Dekrüpteerija sai vale arvu argumente',
     2: 'Häälte faili ei önnestunud lugemiseks avada',
     3: 'Dekrüptitud häälte faili ei õnnestunud kirjutamiseks avada',
     4: 'Häälte failis puudus versiooni number',
@@ -52,7 +53,8 @@ G_DECRYPT_ERRORS = {1: 'Dekrüpteerija sai vale arvu argumente',
     9: 'Dekrüpteerija ebaõnnestus'}
 
 
-G_SIGN_ERRORS = {1: 'Allkirjastaja sai vale arvu argumente',
+G_SIGN_ERRORS = {
+    1: 'Allkirjastaja sai vale arvu argumente',
     2: 'Tulemusfaili ei önnestunud lugemiseks avada',
     3: 'Allkirjafaili ei õnnestunud kirjutamiseks avada',
     4: 'Viga sisendi lugemisel',
@@ -146,14 +148,14 @@ class ChoicesCounter:
         for rk in reg.list_keys(['hlr', 'choices']):
             r_key = self._to_key(rk)
             self.__cdata[r_key] = {}
-            if not r_key in self.__ddata:
+            if r_key not in self.__ddata:
                 self.__ddata[r_key] = {}
             for stat in reg.list_keys(['hlr', 'choices', rk]):
                 d_key = self._to_key(stat)
                 self.__cdata[r_key][d_key] = {}
                 for choi in reg.list_keys(['hlr', 'choices', rk, stat]):
                     self.__cdata[r_key][d_key][choi] = 0
-                    if not choi in self.__ddata[r_key]:
+                    if choi not in self.__ddata[r_key]:
                         self.__ddata[r_key][choi] = 0
 
     def has_ring(self, ring):
@@ -180,24 +182,27 @@ class ChoicesCounter:
             for stat in self._sort(self.__cdata[rk], ringkonnad_cmp):
                 for choice in self._sort(self.__cdata[rk][stat], valikud_cmp):
                     self.__count += self.__cdata[rk][stat][choice]
-                    count_line = [stat[0], stat[1], rk[0], rk[1],
-                        str(self.__cdata[rk][stat][choice]),
-                        choice.split('.')[1]]
+                    count_line =\
+                        [stat[0], stat[1], rk[0], rk[1],
+                         str(self.__cdata[rk][stat][choice]),
+                         choice.split('.')[1]]
                     out_f.write("\t".join(count_line) + "\n")
 
     def outputdist(self, out_f):
         for rk in self._sort(self.__ddata, ringkonnad_cmp):
             for choice in self._sort(self.__ddata[rk], valikud_cmp):
                 count_line = [rk[0], rk[1],
-                    str(self.__ddata[rk][choice]),
-                    choice.split('.')[1]]
+                              str(self.__ddata[rk][choice]),
+                              choice.split('.')[1]]
                 out_f.write("\t".join(count_line) + "\n")
 
 
 def _sig(inf):
     return "%s.sig" % inf
 
+
 class HLR:
+
     """
     Häältelugemisrakendus
     """
@@ -234,14 +239,18 @@ class HLR:
         token_name = Election().get_hsm_token_name()
         priv_key_label = Election().get_hsm_priv_key()
         pkcs11lib = Election().get_pkcs11_path()
-        args = [input_file, self.output_file, \
-            token_name, priv_key_label, pin, pkcs11lib]
+        args = [input_file,
+                self.output_file,
+                token_name,
+                priv_key_label,
+                pin,
+                pkcs11lib]
 
         exit_code = 0
 
         try:
             exit_code = subprocess.call([self.decrypt_prog] + args)
-        except OSError, oserr:
+        except OSError as oserr:
             errstr = "Häälte faili '%s' dekrüpteerimine nurjus: %s" % \
                 (input_file, oserr)
             evlog.log_error(errstr)
@@ -262,24 +271,27 @@ class HLR:
             return False
 
         errstr = "Häälte faili '%s' dekrüpteerimine nurjus (signaal %d)" % \
-                (input_file, exit_code)
+            (input_file, exit_code)
         evlog.log_error(errstr)
         return False
-
 
     def _sign_result(self, pin, input_file):
 
         token_name = Election().get_hsm_token_name()
         priv_key_label = Election().get_hsm_priv_key()
         pkcs11lib = Election().get_pkcs11_path()
-        args = [input_file, _sig(input_file), \
-            token_name, priv_key_label, pin, pkcs11lib]
+        args = [input_file,
+                _sig(input_file),
+                token_name,
+                priv_key_label,
+                pin,
+                pkcs11lib]
 
         exit_code = 0
 
         try:
             exit_code = subprocess.call([self.sign_prog] + args)
-        except OSError, oserr:
+        except OSError as oserr:
             errstr = "Tulemuste faili '%s' allkirjastamine nurjus: %s" % \
                 (input_file, oserr)
             evlog.log_error(errstr)
@@ -300,22 +312,22 @@ class HLR:
             return False
 
         errstr = "Tulemuste faili '%s' allkirjastamine nurjus (signaal %d)" % \
-                (input_file, exit_code)
+            (input_file, exit_code)
         evlog.log_error(errstr)
         return False
 
     def _sign_result_files(self, pin):
-        f1 = self._reg.path(\
-                ['hlr', 'output', evcommon.ELECTIONRESULT_FILE])
-        f2 = self._reg.path(\
-                ['hlr', 'output', evcommon.ELECTIONRESULT_STAT_FILE])
+        f1 = self._reg.path(
+            ['hlr', 'output', evcommon.ELECTIONRESULT_FILE])
+        f2 = self._reg.path(
+            ['hlr', 'output', evcommon.ELECTIONRESULT_STAT_FILE])
 
         ret1 = self._sign_result(pin, f1)
         ret2 = self._sign_result(pin, f2)
 
         if (ret1 and ret2):
             import zipfile
-            zippath = self._reg.path(\
+            zippath = self._reg.path(
                 ['hlr', 'output', evcommon.ELECTIONRESULT_ZIP_FILE])
             rzip = zipfile.ZipFile(zippath, "w")
             rzip.write(f1, evcommon.ELECTIONRESULT_FILE)
@@ -334,7 +346,6 @@ class HLR:
         else:
             return False
 
-
     def _add_kehtetu(self, ringkond, district):
         self.__cnt.add_vote(ringkond, district, ringkond[0] + ".kehtetu")
 
@@ -347,10 +358,10 @@ class HLR:
             ret = False
         else:
             lst = haal.split('\n')
-            if ((len(lst) != 4) or \
-                (lst[0] != evcommon.VERSION) or \
-                (lst[1] != self._elid) or \
-                (lst[3] != "")):
+            if ((len(lst) != 4) or
+                    (lst[0] != evcommon.VERSION) or
+                    (lst[1] != self._elid) or
+                    (lst[3] != "")):
                 ret = False
             else:
                 if not formatutil.is_valiku_kood(lst[2]):
@@ -373,16 +384,16 @@ class HLR:
             vote = base64.decodestring(votelst[5])
             if not self._check_vote(ring, dist, vote, line_nr):
                 self._log4.log_info(
-                        tyyp=4,
-                        haal=base64.decodestring(votelst[4]),
-                        ringkond_omavalitsus=votelst[2],
-                        ringkond=votelst[3])
+                    tyyp=4,
+                    haal=base64.decodestring(votelst[4]),
+                    ringkond_omavalitsus=votelst[2],
+                    ringkond=votelst[3])
             else:
                 self._log5.log_info(
-                        tyyp=5,
-                        haal=base64.decodestring(votelst[4]),
-                        ringkond_omavalitsus=votelst[2],
-                        ringkond=votelst[3])
+                    tyyp=5,
+                    haal=base64.decodestring(votelst[4]),
+                    ringkond_omavalitsus=votelst[2],
+                    ringkond=votelst[3])
             return True
         except:
             evlog.log_exception()
@@ -398,16 +409,16 @@ class HLR:
         return True
 
     def _write_result(self):
-        result_dist_fn = self._reg.path(\
-                ['hlr', 'output', evcommon.ELECTIONRESULT_FILE])
+        result_dist_fn = self._reg.path(
+            ['hlr', 'output', evcommon.ELECTIONRESULT_FILE])
         out_f = file(result_dist_fn, 'w')
         out_f.write(evcommon.VERSION + '\n' + self._elid + '\n')
         self.__cnt.outputdist(out_f)
         out_f.close()
         ksum.store(result_dist_fn)
 
-        result_stat_fn = self._reg.path(\
-                ['hlr', 'output', evcommon.ELECTIONRESULT_STAT_FILE])
+        result_stat_fn = self._reg.path(
+            ['hlr', 'output', evcommon.ELECTIONRESULT_STAT_FILE])
         out_f = file(result_stat_fn, 'w')
         out_f.write(evcommon.VERSION + '\n' + self._elid + '\n')
         self.__cnt.outputstat(out_f)
@@ -423,20 +434,21 @@ class HLR:
         # remove header
         log_lines = log_lines - 6
         if log_lines != self.__cnt.count():
-            errstr = \
-                "Log4 ja Log5 ridade arv (%d) "\
-                    "ei klapi häälte arvuga (%d)" % \
-                        (log_lines, self.__cnt.count())
+            errstr = "Log4 ja Log5 ridade arv (%d) "\
+                "ei klapi häälte arvuga (%d)" % \
+                (log_lines, self.__cnt.count())
             evlog.log_error(errstr)
             return False
         return True
 
     def _create_logs(self):
-        with open(self._reg.path(['common','log4']),'w') as log4_f:
+
+        with open(self._reg.path(['common', 'log4']), 'w') as log4_f:
             log4_f.write(evcommon.VERSION + "\n")
             log4_f.write(self._elid + "\n")
             log4_f.write("4\n")
-        with open(self._reg.path(['common','log5']),'w') as log5_f:
+
+        with open(self._reg.path(['common', 'log5']), 'w') as log5_f:
             log5_f.write(evcommon.VERSION + "\n")
             log5_f.write(self._elid + "\n")
             log5_f.write("5\n")
@@ -475,15 +487,15 @@ def main_function():
     start_time = time.time()
 
     # See on kataloom (mälufailisüsteem) kus vahetulemusi hoiame.
-    if not ENV_EVOTE_TMPDIR in os.environ:
+    if ENV_EVOTE_TMPDIR not in os.environ:
         print 'Keskkonnamuutuja %s seadmata\n' % (ENV_EVOTE_TMPDIR)
         sys.exit(1)
 
     _hlr = HLR(sys.argv[1], os.environ[ENV_EVOTE_TMPDIR])
     retval = _hlr.run(sys.argv[2])
 
-    print time.strftime("\nAega kulus %H:%M:%S", \
-            time.gmtime(long(time.time() - start_time)))
+    print time.strftime("\nAega kulus %H:%M:%S",
+                        time.gmtime(long(time.time() - start_time)))
 
     if retval:
         print 'Häälte lugemine õnnestus'

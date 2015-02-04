@@ -35,15 +35,16 @@ def input_list_error(name, lineno, etype, msg, line = None):
     lineno_txt = ''
     line_txt = ''
 
-    if lineno != None:
+    if lineno is not None:
         lineno_txt = ' LINENO(%d)' % lineno
 
-    if line != None:
+    if line is not None:
         line_txt = ' LINE(%s)' % line
 
     tmpl = '%(name)s %(error)s,%(lineno)s "%(msg)s"%(line)s'
-    return tmpl % { 'name': name, 'error': etype, \
+    return tmpl % { 'name': name, 'error': etype,
            'lineno': lineno_txt, 'msg': msg, 'line': line_txt  }
+
 
 class InputList:
 
@@ -103,7 +104,7 @@ class InputList:
 
     def current(self, line):
         self.__curline = None
-        if line and len(line):
+        if line:
             self.__tic.tick(len(line))
             self.__curline = line.rstrip('\n')
             self.__count += 1
@@ -129,9 +130,9 @@ class InputList:
             self.errform('Valimiste identifikaator')
             retval = False
         else:
-            if self.__elid != None:
+            if self.__elid is not None:
                 if self.__elid != line2:
-                    self.errcons('Valimiste identifikaator pole %s'\
+                    self.errcons('Valimiste identifikaator pole %s'
                         % self.__elid)
                     retval = False
 
@@ -148,7 +149,7 @@ class InputList:
 
         while True:
             data = self.current(infile.readline())
-            if data == None:
+            if data is None:
                 break
 
             if self.dataline(data):
@@ -170,6 +171,7 @@ class InputList:
         self.__curline = None
         try:
             infile = open(filename, 'r')
+            evcommon.skip_utf8_bom(infile)
             if not self._check_header(infile):
                 retval = False
                 if not self.__ignore_errors:
@@ -178,7 +180,7 @@ class InputList:
                 retval = False
             return retval
         finally:
-            if not infile == None:
+            if not infile is None:
                 infile.close()
 
 
@@ -239,9 +241,8 @@ class Districts(InputList):
         elif lst[0] == 'valimisjaoskond':
             return self._dataline_jaoskond(lst)
 
-        else:
-            self.errform('Kirje tüüp')
-            return False
+        self.errform('Kirje tüüp')
+        return False
 
     def _dataline_ringkond(self, lst):
         if len(lst) != 4:
@@ -263,7 +264,7 @@ class Districts(InputList):
             self.errform('Kirjete arv real')
             return False
 
-        if not formatutil.is_jaoskonna_number_kov_koodiga(\
+        if not formatutil.is_jaoskonna_number_kov_koodiga(
                 lst[1], lst[2]):
             self.errform('Valimisjaoskonna number KOV koodiga')
             return False
@@ -395,7 +396,6 @@ class ChoicesHLR(ChoicesBase):
             self._create_district(d_lst[2], ringkond, district, choices_by_districts[ringkond])
             ticker_.tick()
 
-
     def _create_district(self, ringkond_code, ringkond, district, choices):
         ringkond_key = self.choices_key + [ringkond]
         district_key = self.choices_key + [ringkond, district]
@@ -406,7 +406,6 @@ class ChoicesHLR(ChoicesBase):
             self.reg.create_integer_value(district_key, choice, 0)
 
 
-
 class ChoicesHES(ChoicesBase):
 
     def __init__(self, reg):
@@ -414,7 +413,7 @@ class ChoicesHES(ChoicesBase):
         self.choices_key = ['hes', 'choices']
 
     def district_choices_to_voter(self, voter, quest, distr_name):
-        choi_list = self.district_choices(\
+        choi_list = self.district_choices(
             voter['ringkond_omavalitsus'], voter['ringkond'])
         res = ''
         for elem in choi_list:
@@ -525,6 +524,7 @@ class ChoicesList(InputList):
         adder.create_tree(self.uniq)
         return c_choice
 
+
 class VotersList(InputList):
 
     def __init__(self, root, reg, jsk=None):
@@ -564,7 +564,7 @@ class VotersList(InputList):
             self.errform('Kirje tüüp')
             return False
 
-        if not formatutil.is_jaoskonna_number_kov_koodiga(\
+        if not formatutil.is_jaoskonna_number_kov_koodiga(
                 lst[3], lst[4]):
             self.errform('Valimisjaoskonna number KOV koodiga')
             return False
@@ -595,11 +595,6 @@ class VotersList(InputList):
                     self.errcons('Põhjus ei ole ' + str(pohjused))
                     return False
 
-        if self.jsk != None \
-            and not self.jsk.has_dist([lst[3], lst[4], lst[5], lst[6]]):
-            self.errcons('Olematu jaoskond')
-            return False
-
         return True
 
     def checkuniq(self, line):
@@ -608,14 +603,19 @@ class VotersList(InputList):
             if lst[0] in self.__add:
                 self.errcons('Lisatav isik olemas')
                 return False
+            elif self.algne and self.jsk is not None \
+                and not self.jsk.has_dist([lst[3], lst[4], lst[5], lst[6]]):
+                self.errcons('Olematu jaoskond')
+                # If False is returned then format error will
+                # interrupt the loading of the file
+                #return False
             else:
                 self.__add[lst[0]] = line
         else:
             if lst[0] in self.__del:
                 self.errcons('Mitmekordne eemaldamine')
                 return False
-            else:
-                self.__del[lst[0]] = line
+            self.__del[lst[0]] = line
         return True
 
     def my_header(self, infile):
@@ -646,7 +646,7 @@ class VotersList(InputList):
 
         try:
             db = self.__db(voter_id)
-            return db.has_key(voter_id)
+            return voter_id in db
         except: # pylint: disable=W0702
             return False
 
@@ -656,16 +656,14 @@ class VotersList(InputList):
         return self.__has_voter(voter_id)
 
     def __get_dummy_voter(self, voter_id):
-        id_codes = ["00000000000", "00000000001", "00000000002", \
-                "00000000003", "00000000004", "00000000005", \
+        id_codes = ["00000000000", "00000000001", "00000000002",
+                "00000000003", "00000000004", "00000000005",
                 "00000000006", "00000000007", "00000000008", "00000000009"]
-        id_code = voter_id
         for i in id_codes:
             db = self.__db(i)
             if len(db) == 0:
                 continue
-            else:
-                id_code = db.keys()[0]
+            id_code = db.keys()[0]
             voter = db[id_code].split('\t')
             ret = {
                 'nimi': 'XXX YYY', # pylint: disable=W0511
@@ -747,6 +745,7 @@ class VotersList(InputList):
         muutmise korral. Andmed on vastuolulised järgmistel juhtudel:
         1. lisatav kasutaja on nimekirjas olemas
         2. kustutatavat kasutajat pole nimekirjas
+        3. kasutajat lisatakse olematusse jaoskonda
 
         Kõik ebasobivad kirjed korjatakse self.__add ja self.__del
         listidest ära, sest kontroll tehakse lõpuni.
@@ -783,6 +782,13 @@ class VotersList(InputList):
                 retval = False
                 self.errother(
                     'Lisatav isik %s on juba valijate nimekirjas' % el)
+                del self.__add[el]
+
+            _v = line.split('\t')
+            if self.jsk is not None \
+                and not self.jsk.has_dist([_v[3], _v[4], _v[5], _v[6]]):
+                retval = False
+                self.errother('Olematu jaoskond')
                 del self.__add[el]
 
             _t.tick()

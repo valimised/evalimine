@@ -64,18 +64,18 @@ def usage():
 
 
 def main_function():
-    if (len(sys.argv) != 2) and (len(sys.argv) != 5):
+    if len(sys.argv) not in [2, 5]:
         usage()
 
-    if (len(sys.argv) == 2) and (sys.argv[1] != 'get'):
+    if len(sys.argv) == 2 and sys.argv[1] != 'get':
         usage()
 
-    if (len(sys.argv) == 5) and (sys.argv[1] != 'set'):
+    if len(sys.argv) == 5 and sys.argv[1] != 'set':
         usage()
 
     cmd = sys.argv[1]
 
-    if cmd == 'get' or cmd == 'set':
+    if cmd in ['get', 'set']:
         if cmd == 'get':
             get_hsm()
         else:

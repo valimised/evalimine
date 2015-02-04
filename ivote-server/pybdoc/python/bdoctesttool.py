@@ -36,11 +36,11 @@ bdoc.validate(bdocpythonutils.ManifestProfile(profile_type,
 
 sigfiles = bdoc.signatures.keys()
 if len(sigfiles) == 0:
-    raise Exception, "BDoc ei sisalda ühtegi allkirja"
+    raise Exception("BDoc ei sisalda ühtegi allkirja")
 
 sigfiles = bdoc.signatures.keys()
 if len(sigfiles) != 1:
-    raise Exception, "BDoc sisaldab rohkem kui ühte allkirja"
+    raise Exception("BDoc sisaldab rohkem kui ühte allkirja")
 
 config.load(conf_dir)
 

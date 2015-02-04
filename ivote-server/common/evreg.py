@@ -50,6 +50,7 @@ def create_registry(path_to_registry):
 
 
 class Registry:
+
     """Registry handling class
     """
 
@@ -224,6 +225,7 @@ class Registry:
 
 
 class RegistryValue:
+
     """Class to represent registry value
 
     @type   have_value: boolean
@@ -350,7 +352,6 @@ class RegistryValue:
             fcntl.lockf(_wf, fcntl.LOCK_EX)
             _wf.truncate()
             _wf.close()
-
 
 
 # vim:set ts=4 sw=4 et fileencoding=utf8:

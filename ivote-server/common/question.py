@@ -15,6 +15,7 @@ http://creativecommons.org/licenses/by-nc-nd/3.0/.
 import inputlists
 import evcommon
 
+
 class Question:
 
     def __init__(self, elid, root, reg):
@@ -56,7 +57,7 @@ class Question:
                 return None
             return vl.get_voter(ik)
         finally:
-            if vl != None:
+            if vl is not None:
                 vl.close()
 
     def reset_data(self):
@@ -92,7 +93,7 @@ class Question:
         self._reg.truncate_value(['common'], logname)
 
     def can_vote(self, ik):
-        return (self.get_voter(ik) != None)
+        return (self.get_voter(ik) is not None)
 
     def choices_to_voter(self, voter):
         ed = inputlists.Districts()

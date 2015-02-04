@@ -14,6 +14,7 @@ http://creativecommons.org/licenses/by-nc-nd/3.0/.
 
 import time
 
+
 def date_today():
     # tm_year, tm_mon, tm_mday, tm_hour, tm_min, tm_sec,
     # tm_wday, tm_yday, tm_isdst
@@ -58,7 +59,7 @@ def is_18(ik):
     if today[2] >= birthday[2]:
         return True
 
-    # today[2] < birthday[2]. Isik pole veel t2naseks 18 saanud
+    # today[2] < birthday[2]. Isik pole veel tänaseks 18 saanud
     # (saab t2na v6i hiljem).
     return False
 

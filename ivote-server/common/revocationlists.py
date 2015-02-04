@@ -16,6 +16,7 @@ import sys
 import formatutil
 import inputlists
 
+
 class RevocationList(inputlists.InputList):
 
     def __init__(self):

@@ -12,13 +12,9 @@ Outcoming server error and message strings
 # Verification protocol errors #
 ################################
 
-# Error message shown when the query had too many or unknown parameters
-BAD_PARAMETERS = \
-    'Vigased sisendparameetrid'
-
 # The verification vote ID has expired, reached it's maximum count or is otherwise invalid
 INVALID_VOTE_ID = \
-    'Seda hääle identifikaatorit ei saa kasutada hääle kontrollimiseks'
+    'Seda hääle identifikaatorit pole võimalik hääle kontrollimiseks kasutada'
 
 # Error message given for internal errors during vore verification
 TECHNICAL_ERROR_VOTE_VERIFICATION = \

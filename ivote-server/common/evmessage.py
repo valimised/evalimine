@@ -24,13 +24,18 @@ MSG_FILE = ['common', 'teated']
 
 # Selle klassi ainus mõte on, et EV_ERRORS. abil saab lähtekoodis markeerida
 # veakoode - siis on vajadusel mugav greppida neid.
+
+
 class EvErrors:
+
     def __getattr__(self, attr):
         return attr
 
 EV_ERRORS = EvErrors()
 
+
 class EvMessage:
+
     """Message strings handling class, Singleton pattern
     """
 
@@ -52,8 +57,7 @@ class EvMessage:
             config = ConfigParser.ConfigParser()
             config.readfp(open(fn, 'r'))
             for i in config.sections():
-                options = config.options(i)
-                for j in options:
+                for j in config.options(i):
                     self.msg_strings[j] = config.get(i, j)
 
     def import_str_file(self, file_name):
@@ -64,10 +68,10 @@ class EvMessage:
             self._load_strings()
         except: # pylint: disable=W0702
             exctype, value = sys.exc_info()[:2]
-            print 'Teateid ei õnnestunud laadida: %s: \"%s\"' % \
-                (exctype, value)
+            print('Teadete laadimine ei õnnestunud: %s: \"%s\"' %
+                  (exctype, value))
             return
-        print 'Teated õnnestus laadida.'
+        print 'Teadete laadimine oli edukas.'
 
     def get_str(self, key, default_msg):
         k = key.lower()

@@ -16,6 +16,7 @@
 #include "Signature.h"
 #include "StackException.h"
 #include "ChallengeVerifierImpl.h"
+#include "SignatureVerifierImpl.h"
 #include <xsec/utils/XSECPlatformUtils.hpp>
 #include "crypto/OpenSSLHelpers.h"
 #include "crypto/X509Cert.h"
@@ -61,6 +62,7 @@ void __composeResultErrorInfo(BDocVerifierResult *res)
 //
 
 void initialize() {
+	ERR_load_crypto_strings();
 	SSL_load_error_strings();
 	SSL_library_init();
 	OPENSSL_config(NULL);
@@ -69,6 +71,7 @@ void initialize() {
 }
 
 void terminate() {
+	ERR_free_strings();
 	XSECPlatformUtils::Terminate();
 	xercesc::XMLPlatformUtils::Terminate();
 }
@@ -363,5 +366,52 @@ void ChallengeVerifier::setChallenge(const unsigned char *buf, size_t len)
 void ChallengeVerifier::setSignature(const unsigned char *buf, size_t len)
 {
 	impl->signature.set(buf, len);
+}
+
+/*
+ * SignatureVerifier
+ * */
+
+
+SignatureVerifier::SignatureVerifier() : error(), impl(NULL)
+{
+	impl = new SignatureVerifierImpl();
+}
+
+SignatureVerifier::~SignatureVerifier()
+{
+	delete impl;
+}
+
+bool SignatureVerifier::isSignatureOk()
+{
+	bool res = false;
+	try {
+		res = impl->isSignatureOk();
+		if (!res) {
+			error = impl->error;
+		}
+		return res;
+	}
+	catch (...) {
+		error = "Unknown error";
+		res = false;
+	}
+	return res;
+}
+
+void SignatureVerifier::setPubkey(const unsigned char *buf, size_t len)
+{
+	impl->pubkey.set(buf, len);
+}
+
+void SignatureVerifier::setSignature(const unsigned char *buf, size_t len)
+{
+	impl->signature.set(buf, len);
+}
+
+void SignatureVerifier::setHash(const unsigned char *buf, size_t len)
+{
+	impl->hash.set(buf, len);
 }
 

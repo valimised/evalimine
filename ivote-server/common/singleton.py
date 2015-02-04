@@ -12,6 +12,7 @@ To view a copy of this license, visit
 http://creativecommons.org/licenses/by-nc-nd/3.0/.
 """
 
+
 class SingletonType(type):
 
     def __call__(cls):

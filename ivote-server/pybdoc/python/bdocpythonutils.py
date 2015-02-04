@@ -29,7 +29,7 @@ REF_MANIFEST_TMPL_3 = \
     'ation/vnd.etsi.asic-e+zip"/>'
 REF_MANIFEST_TMPL_4 = '</manifest:manifest>'
 
-REF_MANIFEST_LINES = [ \
+REF_MANIFEST_LINES = [
     REF_MANIFEST_TMPL_1,
     REF_MANIFEST_TMPL_2,
     REF_MANIFEST_TMPL_3,
@@ -42,7 +42,7 @@ REF_MANIFEST_DDS_TMPL_3 = \
         '<manifest:file-entry manifest:media-type='\
         '"application/vnd.etsi.asic-e+zip" manifest:full-path="/" />'
 
-REF_MANIFEST_DDS_LINES = [ \
+REF_MANIFEST_DDS_LINES = [
     REF_MANIFEST_DDS_TMPL_1,
     REF_MANIFEST_TMPL_2,
     REF_MANIFEST_DDS_TMPL_3,
@@ -87,6 +87,7 @@ class BDocContainer:
     def __init__(self):
         self.__bdoc = None
         self.__manifest = None
+        self.__loaded_bytes = None
         self.documents = {}
         self.signatures = {}
         self.prof = 'BES'
@@ -104,13 +105,21 @@ class BDocContainer:
 
     def load(self, bdocfile):
         self.__bdoc = zipfile.ZipFile(bdocfile)
-        if self.__bdoc.testzip() != None:
-            raise Exception, 'Invalid zipfile'
+        if self.__bdoc.testzip() is not None:
+            raise Exception('Invalid zipfile')
 
     def load_bytes(self, data):
         import StringIO
+        self.__loaded_bytes = data
         dfile = StringIO.StringIO(data)
         self.load(dfile)
+
+    def get_loaded_bytes(self):
+        """Returns the bytes that were loaded into this BDocContainer."""
+        # get_bytes creates a new zipfile which means that the modification
+        # time changes. Because of this, we can't use get_bytes to retrieve the
+        # original bytes (e.g. for hash calculation) and need this method.
+        return self.__loaded_bytes
 
     def get_bytes(self):
         import StringIO
@@ -176,10 +185,10 @@ class BDocContainer:
             _contents[_el.filename.encode("utf8")] = None
 
         if not self._validate_mimetype(_contents):
-            raise Exception, 'Invalid or missing MIME type'
+            raise Exception('Invalid or missing MIME type')
 
         if not self._acquire_manifest(_contents):
-            raise Exception, 'Could not load manifest'
+            raise Exception('Could not load manifest')
 
         _lst = self.__manifest.rstrip().split('\n')
         _lst = filter(None, map(str.strip, _lst))
@@ -188,7 +197,7 @@ class BDocContainer:
         _len2 = len(_input_set)
 
         if _len1 != _len2:
-            raise Exception, 'Invalid manifest: input contains equal lines'
+            raise Exception('Invalid manifest: input contains equal lines')
 
         _reference_sets = []
         for _i in range(len(profiles)):
@@ -211,7 +220,7 @@ class BDocContainer:
         else:
             print _reference_sets
             print _input_set
-            raise Exception, 'Invalid manifest: not equal to reference set'
+            raise Exception('Invalid manifest: not equal to reference set')
 
         self.prof = _profile.sigtype()
         for _el in _contents:

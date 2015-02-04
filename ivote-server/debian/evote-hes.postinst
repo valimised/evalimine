@@ -1,4 +1,22 @@
 #!/bin/sh
+# postinst script for evote-hes
+#
+# see: dh_installdeb(1)
+
+set -e
+
+# summary of how this script can be called:
+#        * <postinst> `configure' <most-recently-configured-version>
+#        * <old-postinst> `abort-upgrade' <new version>
+#        * <conflictor's-postinst> `abort-remove' `in-favour' <package>
+#          <new-version>
+#        * <postinst> `abort-remove'
+#        * <deconfigured's-postinst> `abort-deconfigure' `in-favour'
+#          <failed-install-package> <version> `removing'
+#          <conflicting-package> <version>
+# for details, see http://www.debian.org/doc/debian-policy/ or
+# the debian-policy package
+
 
 . /usr/share/debconf/confmodule
 
@@ -9,86 +27,115 @@ USER=hes
 
 TYPE_DIR=/var/evote/registry/common/hes
 
-if [ "$1" = configure ] ; then
+case "$1" in
+    configure)
+        test -d $TYPE_DIR || mkdir --parents $TYPE_DIR
 
-	test -d $TYPE_DIR || mkdir --parents $TYPE_DIR
+        invoke-rc.d apache2 stop
+        a2enmod cgid
+        a2enmod ssl
+        a2enmod unique_id
+        a2enmod log_forensic
+        ln -sf /etc/evote/hes-apache.conf /etc/apache2/sites-available/hes-apache
+        a2ensite hes-apache
+        a2dissite default || true
 
-	invoke-rc.d apache2 stop
-	a2enmod cgi
-	a2enmod ssl
-	a2enmod unique_id
-	a2enmod log_forensic
-	ln -sf /etc/evote/hes-apache.conf /etc/apache2/sites-available/hes-apache
-	a2ensite hes-apache
-	a2dissite default || true
+        PORTS_CONF=/etc/apache2/ports.conf
+        if [ -s ${PORTS_CONF} ]; then
+            cp ${PORTS_CONF} ${PORTS_CONF}.bak
+            echo -n > ${PORTS_CONF}
+        fi
 
-	mv /etc/apache2/ports.conf /etc/apache2/ports.conf.old
-	touch /etc/apache2/ports.conf
-
-
-	LOGROTATE="/etc/logrotate.d/apache2"
-	if [ -e $LOGROTATE ] ; then
-		TMP=`tempfile`
-		chmod --reference=$LOGROTATE $TMP
-		cat << EOF > $TMP
+        LOGROTATE="/etc/logrotate.d/apache2"
+        if [ -e $LOGROTATE ] ; then
+            TMP=`tempfile`
+            chmod --reference=$LOGROTATE $TMP
+            cat << EOF > $TMP
 /var/log/apache2/*.log {
-	weekly
-	missingok
-	rotate 52
-	nocompress
-	create 640 root www-data
-	sharedscripts
-	postrotate
-		/etc/init.d/apache2 reload > /dev/null
-	endscript
-	prerotate
-		if [ -d /etc/logrotate.d/httpd-prerotate ]; then \\
-			run-parts /etc/logrotate.d/httpd-prerotate; \\
-		fi; \\
-	endscript
+        weekly
+        missingok
+        rotate 52
+        nocompress
+        create 640 root www-data
+        sharedscripts
+        postrotate
+                /etc/init.d/apache2 reload > /dev/null
+        endscript
+        prerotate
+                if [ -d /etc/logrotate.d/httpd-prerotate ]; then \\
+                        run-parts /etc/logrotate.d/httpd-prerotate; \\
+                fi; \\
+        endscript
 }
 EOF
-		mv $TMP $LOGROTATE
-	fi
+            mv $TMP $LOGROTATE
+        fi
 
-	chgrp www-data /var/log/apache2
-	chmod g+rxs /var/log/apache2
-	touch /var/log/apache2/forensic.log
-	set +e
-	chown root /var/log/apache2/*log*
-	chgrp www-data /var/log/apache2/*log*
-	chmod 640 /var/log/apache2/*log*
-	set -e
+        chgrp www-data /var/log/apache2
+        chmod g+rxs /var/log/apache2
+        touch /var/log/apache2/forensic.log
+        set +e
+        chown root /var/log/apache2/*log*
+        chgrp www-data /var/log/apache2/*log*
+        chmod 640 /var/log/apache2/*log*
+        set -e
 
-	db_get evote-hes/log_server_ip
-	LOGIP="$RET"
-	db_stop
-	SYSLOGCONF="/etc/evote/hes-syslog.conf"
-	TMP=`tempfile`
-	chmod --reference=$SYSLOGCONF $TMP
-	sed -e "s/TOBEREPLACED/$LOGIP/" $SYSLOGCONF > $TMP
-	mv $TMP $SYSLOGCONF
-	ln -sf $SYSLOGCONF /etc/rsyslog.d/hes-syslog.conf
-	invoke-rc.d rsyslog restart
-fi
+        echo
+        if apache2ctl configtest >/dev/null 2>&1; then
+            echo 'Veebiserveri sätted on korras, serveri taaskäivitamine...'
+            service apache2 restart
+        else
+            db_input high evote-hes/apache-config || true
+            db_go
+        fi
 
-case "$1" in
-	configure|abort-upgrade|abort-remove|abort-deconfigure)
-		dpkg --listfiles $NAME | grep '\.py$' | \
-			xargs -n 1 /usr/bin/python2.7 -c 'import py_compile,sys;py_compile.compile(sys.argv[1])'
-		dpkg --listfiles $NAME | grep '\.py$' | \
-			xargs -n 1 /usr/bin/python2.7 -O -c 'import py_compile,sys;py_compile.compile(sys.argv[1])'
-	;;
+        db_get evote-hes/log_server_ip
+        LOGIP="$RET"
+        db_stop
+        SYSLOGCONF="/etc/evote/hes-syslog.conf"
+        TMP=`tempfile`
+        chmod --reference=$SYSLOGCONF $TMP
+        sed -e "s/TOBEREPLACED/$LOGIP/" $SYSLOGCONF > $TMP
+        mv $TMP $SYSLOGCONF
+        ln -sf $SYSLOGCONF /etc/rsyslog.d/hes-syslog.conf
+        invoke-rc.d rsyslog restart
+
+        # create user
+        GID=`grep ^www-data: /etc/group | cut -d: -f 3`
+        getent passwd $USER >/dev/null 2>&1 ||
+            adduser --quiet --system --home /tmp \
+                    --gid $GID \
+                    --shell /usr/share/evote/evote_ui $USER 
+        adduser --quiet $USER cdrom
+        invoke-rc.d cron restart || true
+    ;;
+
+    abort-upgrade|abort-remove|abort-deconfigure)
+    ;;
+
+    *)
+        echo "postinst called with unknown argument \`$1'" >&2
+        exit 1
+    ;;
 esac
 
-# create user
-GID=`grep ^www-data: /etc/group | cut -d: -f 3`
-getent passwd $USER >/dev/null 2>&1 ||
-				adduser --quiet --system --home /tmp \
-			--gid $GID \
-			--shell /usr/share/evote/evote_ui $USER 
-adduser --quiet $USER cdrom
-invoke-rc.d cron restart || true
+
+# compile python files
+case "$1" in
+    configure|abort-upgrade|abort-remove|abort-deconfigure)
+        dpkg --listfiles $NAME | grep '\.py$' | \
+            xargs -n 1 /usr/bin/python2.7 -c 'import py_compile,sys;py_compile.compile(sys.argv[1])'
+        dpkg --listfiles $NAME | grep '\.py$' | \
+            xargs -n 1 /usr/bin/python2.7 -O -c 'import py_compile,sys;py_compile.compile(sys.argv[1])'
+    ;;
+esac
+
+
+# dh_installdeb will replace this with shell code automatically
+# generated by other debhelper scripts.
 
 #DEBHELPER#
 
+exit 0
+
+# vim:sts=4 sw=4 et:

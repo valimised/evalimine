@@ -24,14 +24,17 @@ VOTE_VERIFICATION_ID_FILENAME = "otp"
 ZIP_BDOCFILE = "vote.bdoc"
 ZIP_LOGFILE = "vote.log"
 
+
 def get_verification_key(otp=None):
     key = ['verification', 'otps']
     if otp:
         key.append(otp)
     return key
 
+
 def get_user_key(code):
     return ['hts', 'votes', code[7:11], code]
+
 
 def get_votefile_time(filename):
     llist = filename.split('_')

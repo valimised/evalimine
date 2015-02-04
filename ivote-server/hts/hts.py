@@ -35,11 +35,11 @@ def _file2pdf(input_fn, output_fn):
     error = False
     errstr = ''
     try:
-        retcode = subprocess.call(\
+        retcode = subprocess.call(
             ["rst2pdf", "-s", "dejavu", input_fn, "-o", output_fn, "-v"])
         if retcode != 0:
             error = True
-    except OSError, ose:
+    except OSError as ose:
         error = True
         errstr += str(ose)
 
@@ -52,7 +52,6 @@ def _file2pdf(input_fn, output_fn):
         raise Exception(retcode, errstr)
 
 
-
 def jaoskonnad_cmp(jsk1, jsk2):
     list1 = jsk1.split('\t')
     list2 = jsk2.split('\t')
@@ -62,6 +61,7 @@ def jaoskonnad_cmp(jsk1, jsk2):
         if (i1 != i2):
             return i1 - i2
     return 0
+
 
 def reanumber_cmp(el1, el2):
 
@@ -112,7 +112,8 @@ class HTS(htsbase.HTSBase):
             os.fsync(_f.fileno())
             _f.close()
             os.rename(tmp_name, filename)
-        except Exception, (errno, errstr):
+        except Exception as xxx_todo_changeme:
+            (errno, errstr) = xxx_todo_changeme.args
             evlog.log_error("Faili '%s' kirjutamine nurjus" % filename)
             raise Exception(errno, errstr)
 
@@ -145,7 +146,6 @@ class HTS(htsbase.HTSBase):
         outzip.close()
         self._write_atomic(filename, outdata.getvalue())
 
-
     def get_vote_for_result(self, logline, fname):
         res = None
         try:
@@ -158,13 +158,12 @@ class HTS(htsbase.HTSBase):
                 haal = bdoc.documents["%s.evote" % self._elid]
                 voter = htscommon.get_logline_voter(logline)
                 b64haal = base64.b64encode(haal).strip()
-                res = [voter['jaoskond_omavalitsus'], voter['jaoskond'], \
+                res = [voter['jaoskond_omavalitsus'], voter['jaoskond'],
                     voter['ringkond_omavalitsus'], voter['ringkond'], b64haal]
         except:
             evlog.log_exception()
 
         return res
-
 
     def __write_masinloetav(self, jaoskonnad):
 
@@ -175,8 +174,8 @@ class HTS(htsbase.HTSBase):
         kov_jsk = jaoskonnad.keys()
         kov_jsk.sort(jaoskonnad_cmp)
 
-        of = htscommon.LoggedFile(\
-            self._reg.path(\
+        of = htscommon.LoggedFile(
+            self._reg.path(
                 ['hts', 'output', evcommon.ELECTORSLIST_FILE]))
         of.open('w')
         of.write(evcommon.VERSION + "\n")
@@ -186,9 +185,11 @@ class HTS(htsbase.HTSBase):
             if (len(jaoskonnad[jsk])):
                 jaoskonnad[jsk].sort(reanumber_cmp)
                 for voter in jaoskonnad[jsk]:
-                    outline = '%s\t%s\t%s\t%s\t%s\n' % (
+                    outline = '%s\t%s\t%s\t%s\t%s\t%s\t%s\n' % (
                                 voter['jaoskond_omavalitsus'],
                                 voter['jaoskond'],
+                                voter['ringkond_omavalitsus'],
+                                voter['ringkond'],
                                 voter['reanumber'],
                                 voter['isikukood'],
                                 voter['nimi'])
@@ -206,10 +207,10 @@ class HTS(htsbase.HTSBase):
 
         ret = 0
 
-        tmp_path = self._reg.path(\
+        tmp_path = self._reg.path(
                 ['hts', 'output', evcommon.ELECTORSLIST_FILE_TMP])
 
-        pdf_path = self._reg.path(\
+        pdf_path = self._reg.path(
                 ['hts', 'output', evcommon.ELECTORSLIST_FILE_PDF])
 
         outfile = htscommon.LoggedFile(tmp_path)
@@ -245,8 +246,8 @@ class HTS(htsbase.HTSBase):
                     outfile.write('E-hääletanute nimekiri\n\n')
                     outfile.write('%s\n\n' % description)
                     outfile.write('%s\n\n' % jaoskonnad[mk][vald][jsk][0])
-                    outfile.write('| %s\n| %-15s%-16s%s\n| %s\n\n' % \
-                        (dot_line, 'Nr val nimek', \
+                    outfile.write('| %s\n| %-15s%-16s%s\n| %s\n\n' %
+                        (dot_line, 'Nr val nimek',
                         'Isikukood', 'Nimi', dot_line))
 
                     if (len(jaoskonnad[mk][vald][jsk][1])):
@@ -259,7 +260,7 @@ class HTS(htsbase.HTSBase):
                             outfile.write(outline)
                             ret = ret + 1
                     else:
-                        outfile.write(\
+                        outfile.write(
                             '<<< Jaoskonnas pole ühtegi e-häält >>>\n')
                     outfile.write('\n.. raw:: pdf\n\n\tPageBreak\n\n')
 
@@ -267,7 +268,6 @@ class HTS(htsbase.HTSBase):
 
         _file2pdf(tmp_path, pdf_path)
         return ret
-
 
     def __load_jaoskonnad(self, jsk, jsk_rev):
         dist = inputlists.Districts()
@@ -291,24 +291,23 @@ class HTS(htsbase.HTSBase):
             if jsk_nr == '0\t0':
                 mk = 'ZZZ'
 
-            if not  mk in jsk:
+            if mk not in jsk:
                 jsk[mk] = {}
 
             vald = split_district[0]
             if mk == 'ZZZ':
                 vald = 'ZZZ'
 
-            if not vald in jsk[mk]:
+            if vald not in jsk[mk]:
                 jsk[mk][vald] = {}
 
-            if not i in jsk[mk][vald]:
+            if i not in jsk[mk][vald]:
                 jsk[mk][vald][i] = [dist.district_list[i][0], []]
             else:
                 self._errmsg = 'Viga andmestruktuurides (%s)' % jsk_nr
                 raise Exception(self._errmsg)
 
             jsk_rev[i] = jsk[mk][vald][i][1]
-
 
     def get_log_lines(self, root, path):
         log_lines = []
@@ -333,7 +332,6 @@ class HTS(htsbase.HTSBase):
 
         return log_lines
 
-
     def tyhistusperioodi(self):
 
         vc_valid = 0
@@ -342,7 +340,7 @@ class HTS(htsbase.HTSBase):
         jaoskonnad = {}
         jaoskonnad_rev = {}
         self.__load_jaoskonnad(jaoskonnad, jaoskonnad_rev)
-        tic = ticker.Counter(\
+        tic = ticker.Counter(
             'Hääli:', '\tArvesse minevaid: %d\tKorduvaid: %d')
         tic.start('Koostan e-hääletanute nimekirja:')
 
@@ -362,9 +360,9 @@ class HTS(htsbase.HTSBase):
                 vc_valid += 1
 
                 voter = htscommon.get_logline_voter(latest[0])
-                jaoskonnad_rev['%s\t%s\t%s\t%s' % (\
-                    voter['jaoskond_omavalitsus'], \
-                    voter['jaoskond'], voter['ringkond_omavalitsus'], \
+                jaoskonnad_rev['%s\t%s\t%s\t%s' % (
+                    voter['jaoskond_omavalitsus'],
+                    voter['jaoskond'], voter['ringkond_omavalitsus'],
                     voter['ringkond'])].append(voter)
 
             tic.tick(1, vc_valid, vc_autor)
@@ -379,7 +377,6 @@ class HTS(htsbase.HTSBase):
 
         return vc_valid + vc_autor, vc_autor, valijaid1
 
-
     def lugemisperioodi(self):
 
         r_votes = 0
@@ -387,11 +384,11 @@ class HTS(htsbase.HTSBase):
         a_votes = 0
         b_votes = 0
 
-        self._reg.ensure_no_key(\
+        self._reg.ensure_no_key(
             ['hts', 'output', evcommon.ELECTIONS_RESULT_FILE])
 
-        vf = htscommon.LoggedFile(\
-            self._reg.path(\
+        vf = htscommon.LoggedFile(
+            self._reg.path(
                 ['hts', 'output', evcommon.ELECTIONS_RESULT_FILE]))
         vf.open('a')
         vf.write(evcommon.VERSION + "\n")
@@ -401,7 +398,7 @@ class HTS(htsbase.HTSBase):
         l2_lines = []
         l3_lines = []
 
-        tic = ticker.Counter(\
+        tic = ticker.Counter(
             'Hääli:', '\tKehtivaid: %d\tAvalduse alusel tühistatuid: %d')
         tic.start('Koostan loendamisele minevate häälte nimekirja')
 
@@ -426,7 +423,7 @@ class HTS(htsbase.HTSBase):
                     voteforres = self.get_vote_for_result(old, fn)
                     if voteforres:
                         l1_lines.append(old)
-                        if new == None:
+                        if new is None:
                             ur, reason, tim = self.is_user_revoked(code)
                             if ur:
                                 l2_lines.append("%s\t%s\t%s" % (tim, notime, reason))
@@ -437,7 +434,7 @@ class HTS(htsbase.HTSBase):
                                 l3_lines.append("%s\t%s" % (nowstr, notime))
                         else:
                             autor = new.split('\t')
-                            l2_lines.append("%s\t%s\tkorduv e-hääl: %s" % \
+                            l2_lines.append("%s\t%s\tkorduv e-hääl: %s" %
                                     (autor[0], notime, autor[1]))
                             a_votes += 1
                         new = old
@@ -458,7 +455,6 @@ class HTS(htsbase.HTSBase):
         self.save_log(l3_lines, '3')
         return v_votes, r_votes, a_votes, b_votes
 
-
     def load_revoke(self, input_list, operator):
         good_list = []
         bad_list = []
@@ -472,7 +468,7 @@ class HTS(htsbase.HTSBase):
             revoked, reason, _ = self.is_user_revoked(code)
             if revoked:
                 bad_list.append(el)
-                evlog.log_error(\
+                evlog.log_error(
                     'Kasutaja isikukoodiga %s hääl on juba tühistatud' % code)
             else:
                 # vajalik lugemisele minevate häälte nimistu koostamiseks
@@ -480,7 +476,6 @@ class HTS(htsbase.HTSBase):
                 good_list.append(el)
 
         return good_list, bad_list
-
 
     def load_restore(self, input_list, operator):
         good_list = []
@@ -495,7 +490,7 @@ class HTS(htsbase.HTSBase):
             revoked, reason, _ = self.is_user_revoked(code)
             if (not revoked):
                 bad_list.append(el)
-                evlog.log_error(\
+                evlog.log_error(
                     'Isik koodiga %s ei ole oma häält tühistanud' % code)
                 continue
             else:

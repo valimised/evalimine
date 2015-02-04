@@ -18,13 +18,16 @@ import hashlib
 import urllib
 import exception_msg
 
+
 def get_apache_env(key):
-    if os.environ.has_key(key):
+    if key in os.environ:
         return os.environ[key]
     return ''
 
+
 def get_remote_ip():
     return get_apache_env('REMOTE_ADDR')
+
 
 def get_user_agent():
     return urllib.quote_plus(get_apache_env('HTTP_USER_AGENT'))[:100]

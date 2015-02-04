@@ -74,6 +74,7 @@ int main(int argc, char **argv)
 		sess->setCurrentPrivKey(label);
 
 		std::string signature = sess->signit(memblock, size);
+		delete [] memblock;
 
 		std::ofstream outfile(outf.c_str(), std::ios::out | std::ios::binary | std::ios::ate);
 		if (outfile.is_open()) {
