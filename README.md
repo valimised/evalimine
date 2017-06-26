@@ -13,7 +13,7 @@ the voting system used for legally binding elections must strictly follow the
 legislation, the actual development of Estonian i-voting system is supervised
 by State Electoral Office (http://www.vvk.ee/).
 
-Additional information on the source code can be found on the NEC website:
+Additional information on the source code can be found on the State Electoral Office website:
 http://www.vvk.ee/valijale/e-haaletamine/
 
 Those, who are not familiar with Estonian language may refer to the following
