@@ -14,7 +14,7 @@ legislation, the actual development of Estonian i-voting system is supervised
 by State Electoral Office (http://www.vvk.ee/).
 
 Additional information on the source code can be found on the State Electoral Office website:
-http://www.vvk.ee/valijale/e-haaletamine/
+http://www.vvk.ee/e-haaletamine/
 
 Those, who are not familiar with Estonian language may refer to the following
 website, which contains subset of the information in English:
